@@ -1,0 +1,113 @@
+body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+}
+
+.screen {
+    padding: 20px;
+}
+
+.hidden {
+    display: none;
+}
+
+h1, h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+textarea {
+    width: 100%;
+    height: 200px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    padding: 10px;
+    font-size: 16px;
+}
+
+select, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 16px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+}
+
+button.primary {
+    background: #007bff;
+    border: none;
+}
+
+/* Main START/COMPLETE button: round, 50% width, centered */
+button.primary.big {
+    width: 50%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    margin: 24px auto 0;
+    padding: 0;
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+button.primary.flash {
+    background: #00c851 !important; /* green flash */
+}
+
+/* Current item label, top of screen, large and centered */
+.itemLabel {
+    width: 50%;
+    margin: 0 auto 10px;
+    font-size: 32px;
+    text-align: center;
+}
+
+/* Remaining time, large and centered */
+.bigTime {
+    width: 50%;
+    margin: 0 auto;
+    font-size: 56px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Small "next" caption under the big time */
+.nextInfo {
+    text-align: center;
+    color: #aaa;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+/* Undo button: round, 25% width, centered */
+button.round {
+    width: 25%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    margin: 20px auto 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Restart / Settings: centered pair on their own row */
+.bottomButtons {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.bottomButtons button {
+    width: 35%;
+}
