@@ -234,10 +234,15 @@ function updateDisplay() {
         ? unit.label.toUpperCase()
         : `PARAGRAPH ${unit.label}`;
 
-    let now = new Date();
-    let finish = new Date(now.getTime() + unit.seconds * 1000);
-    currentTargetFinishTime = finish;
-    targetFinish.textContent = formatTime(finish);
+    if (hasStarted) {
+        let now = new Date();
+        let finish = new Date(now.getTime() + unit.seconds * 1000);
+        currentTargetFinishTime = finish;
+        targetFinish.textContent = formatTime(finish);
+    } else {
+        currentTargetFinishTime = null;
+        targetFinish.textContent = "--:--";
+    }
     targetFinish.classList.remove("overdue");
 
     nextPara.textContent =
