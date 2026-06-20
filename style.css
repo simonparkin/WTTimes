@@ -99,7 +99,7 @@ button.primary.flash {
 .bigTime {
     width: 50%;
     margin: 0 auto;
-    font-size: 56px;
+    font-size: 112px;
     font-weight: bold;
     text-align: center;
 }
@@ -108,7 +108,7 @@ button.primary.flash {
 .nextInfo {
     text-align: center;
     color: #aaa;
-    font-size: 14px;
+    font-size: 22px;
     margin-top: 8px;
 }
 
