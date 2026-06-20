@@ -218,14 +218,9 @@ function renderTimingsTable() {
         if (unit.fixed) row.classList.add("fixedRow");
 
         let label = unit.fixed ? unit.label : `Paragraph ${unit.label}`;
-        let type = unit.fixed ? "Fixed" : "Variable";
-        let words = unit.fixed ? "-" : unit.words;
 
         row.innerHTML = `
-            <td>${index + 1}</td>
             <td>${label}</td>
-            <td>${type}</td>
-            <td>${words}</td>
             <td>${formatDuration(unit.seconds)}</td>
         `;
         timingsTableBody.appendChild(row);
