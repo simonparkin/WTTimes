@@ -54,7 +54,7 @@ button.primary {
 
 /* Generate button: round, 30% width, capped at 300px */
 #generateBtn {
-    width: 30%;
+    width: 50%;
     max-width: 300px;
     aspect-ratio: 1 / 1;
     border-radius: 50%;
@@ -70,7 +70,7 @@ button.primary {
 /* Main START/COMPLETE button: round, 50% width, centered */
 button.primary.big {
     width: 50%;
-    max-width: 500px;
+    max-width: 300px;
     aspect-ratio: 1 / 1;
     border-radius: 50%;
     margin: 24px auto 0;
@@ -115,6 +115,7 @@ button.primary.flash {
 /* Undo button: round, 25% width, centered */
 button.round {
     width: 25%;
+    max-width: 150px;
     aspect-ratio: 1 / 1;
     border-radius: 50%;
     margin: 20px auto 0;
