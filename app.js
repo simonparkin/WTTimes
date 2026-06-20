@@ -8,6 +8,7 @@ let history = [];            // for undo
 let totalAllocated = 0;      // total allocated seconds
 let remainingSeconds = 0;    // remaining time
 let hasStarted = false;      // whether the START button has been pressed yet
+let currentTargetFinishTime = null; // Date the current item is supposed to finish by
 
 // ------------------------------
 // SCREEN ELEMENTS
@@ -235,13 +236,26 @@ function updateDisplay() {
 
     let now = new Date();
     let finish = new Date(now.getTime() + unit.seconds * 1000);
+    currentTargetFinishTime = finish;
     targetFinish.textContent = formatTime(finish);
+    targetFinish.classList.remove("overdue");
 
     nextPara.textContent =
         currentIndex < units.length - 1
             ? units[currentIndex + 1].label
             : "-";
 }
+
+// Every second, check whether we've gone past the current target finish
+// time, and turn the display red if so.
+setInterval(() => {
+    if (!currentTargetFinishTime || discussionScreen.classList.contains("hidden")) return;
+    if (new Date() > currentTargetFinishTime) {
+        targetFinish.classList.add("overdue");
+    } else {
+        targetFinish.classList.remove("overdue");
+    }
+}, 1000);
 
 // Redistributes remainingSeconds across the still-to-come PARAGRAPH units only.
 // Fixed units (Opening/Closing Comments, Review Questions) always keep their
