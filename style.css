@@ -104,6 +104,10 @@ button.primary.flash {
     text-align: center;
 }
 
+.bigTime.overdue {
+    color: #ff3b30;
+}
+
 /* Small "next" caption under the big time */
 .nextInfo {
     text-align: center;
