@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>WT Study Timer</title>
+    <title>Watchtower Times</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <!-- SETTINGS SCREEN -->
     <div id="settingsScreen" class="screen">
-        <h1>Watchtower Study Timer</h1>
+        <h1>Watchtower Times</h1>
 
         <label for="meetingLength">Meeting Length:</label>
         <select id="meetingLength">
@@ -20,7 +20,7 @@
         <label for="articleInput">Paste Article Text:</label>
         <textarea id="articleInput" placeholder="Paste the full Watchtower article here..."></textarea>
 
-        <button id="generateBtn" class="primary">Generate Discussion</button>
+        <button id="generateBtn" class="primary">Generate</button>
     </div>
 
     <!-- DISCUSSION SCREEN -->
@@ -37,7 +37,28 @@
 
         <div class="bottomButtons">
             <button id="restartBtn">Restart</button>
+            <button id="viewTimingsBtn">View Timings</button>
             <button id="settingsBtn">Settings</button>
+        </div>
+    </div>
+
+    <!-- TIMINGS MODAL -->
+    <div id="timingsModal" class="modalOverlay hidden">
+        <div class="modalCard">
+            <h2>Calculated Timings</h2>
+            <table id="timingsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Type</th>
+                        <th>Words</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="timingsTableBody"></tbody>
+            </table>
+            <button id="closeTimingsBtn" class="primary">Close</button>
         </div>
     </div>
 

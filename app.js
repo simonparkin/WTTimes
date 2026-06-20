@@ -26,6 +26,10 @@ const undoBtn = document.getElementById("undoBtn");
 const restartBtn = document.getElementById("restartBtn");
 const settingsBtn = document.getElementById("settingsBtn");
 const backToSettingsBtn = document.getElementById("backToSettings");
+const viewTimingsBtn = document.getElementById("viewTimingsBtn");
+const closeTimingsBtn = document.getElementById("closeTimingsBtn");
+const timingsModal = document.getElementById("timingsModal");
+const timingsTableBody = document.getElementById("timingsTableBody");
 
 // ------------------------------
 // HELPERS
@@ -197,6 +201,37 @@ function formatTime(date) {
     return date.toTimeString().slice(0, 5);
 }
 
+// Formats a number of seconds as "m:ss"
+function formatDuration(seconds) {
+    let total = Math.round(seconds);
+    let m = Math.floor(total / 60);
+    let s = total % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function renderTimingsTable() {
+    timingsTableBody.innerHTML = "";
+
+    units.forEach((unit, index) => {
+        let row = document.createElement("tr");
+        if (index === currentIndex) row.classList.add("currentRow");
+        if (unit.fixed) row.classList.add("fixedRow");
+
+        let label = unit.fixed ? unit.label : `Paragraph ${unit.label}`;
+        let type = unit.fixed ? "Fixed" : "Variable";
+        let words = unit.fixed ? "-" : unit.words;
+
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${label}</td>
+            <td>${type}</td>
+            <td>${words}</td>
+            <td>${formatDuration(unit.seconds)}</td>
+        `;
+        timingsTableBody.appendChild(row);
+    });
+}
+
 function updateDisplay() {
     let unit = units[currentIndex];
     currentParaLabel.textContent = unit.fixed
@@ -343,4 +378,13 @@ settingsBtn.onclick = () => {
 
 backToSettingsBtn.onclick = () => {
     showScreen(settingsScreen);
+};
+
+viewTimingsBtn.onclick = () => {
+    renderTimingsTable();
+    timingsModal.classList.remove("hidden");
+};
+
+closeTimingsBtn.onclick = () => {
+    timingsModal.classList.add("hidden");
 };
