@@ -199,7 +199,7 @@ async function addReadScriptureWords(unit) {
 
 
 function formatTime(date) {
-    return date.toTimeString().slice(0, 5);
+    return date.toTimeString().slice(0, 8);
 }
 
 // Formats a number of seconds as "m:ss"
@@ -241,7 +241,7 @@ function updateDisplay() {
         targetFinish.textContent = formatTime(finish);
     } else {
         currentTargetFinishTime = null;
-        targetFinish.textContent = "--:--";
+        targetFinish.textContent = "--:--:--";
     }
     targetFinish.classList.remove("overdue");
 
