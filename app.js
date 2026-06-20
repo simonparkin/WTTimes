@@ -18,6 +18,7 @@ const discussionScreen = document.getElementById("discussionScreen");
 const summaryScreen = document.getElementById("summaryScreen");
 
 const currentParaLabel = document.getElementById("currentParaLabel");
+const articleTitleDisplay = document.getElementById("articleTitleDisplay");
 const targetFinish = document.getElementById("targetFinish");
 const nextPara = document.getElementById("nextPara");
 
@@ -40,6 +41,24 @@ function showScreen(screen) {
     discussionScreen.classList.add("hidden");
     summaryScreen.classList.add("hidden");
     screen.classList.remove("hidden");
+}
+
+// The article title is simply the first non-empty line of the pasted text.
+// The article title is usually the first non-empty line of the pasted
+// text. But if the user pastes the whole WOL page (header, nav menu, etc.
+// included), the real title is repeated several times before the actual
+// article starts — so instead we anchor on the opening theme song line
+// (e.g. "SONG 122 Be Steadfast, Immovable!"), which always appears
+// immediately before the real title.
+function extractArticleTitle(text) {
+    let lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+
+    let songIndex = lines.findIndex(l => /^SONG\s+\d+/i.test(l));
+    if (songIndex !== -1 && songIndex + 1 < lines.length) {
+        return lines[songIndex + 1];
+    }
+
+    return lines.length > 0 ? lines[0] : "";
 }
 
 function parseParagraphs(text) {
@@ -290,6 +309,8 @@ generateBtn.onclick = async () => {
     let text = document.getElementById("articleInput").value;
     let meetingLength = parseInt(document.getElementById("meetingLength").value);
 
+    articleTitleDisplay.textContent = extractArticleTitle(text);
+
     generateBtn.disabled = true;
     generateBtn.textContent = "Looking up cited scriptures...";
 
@@ -383,7 +404,22 @@ undoBtn.onclick = () => {
 };
 
 restartBtn.onclick = () => {
-    showScreen(settingsScreen);
+    if (units.length === 0) {
+        showScreen(settingsScreen);
+        return;
+    }
+
+    currentIndex = 0;
+    history = [];
+    hasStarted = false;
+    startTime = null;
+    remainingSeconds = totalAllocated;
+
+    recalcVariableSeconds();
+
+    completeBtn.textContent = "START";
+    updateDisplay();
+    showScreen(discussionScreen);
 };
 
 settingsBtn.onclick = () => {
