@@ -114,6 +114,7 @@ button.primary.flash {
     color: #aaa;
     font-size: 22px;
     margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 /* Undo button: round, 25% width, centered */
