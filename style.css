@@ -90,7 +90,7 @@ button.primary.flash {
 /* Current item label, top of screen, large and centered */
 .itemLabel {
     width: 50%;
-    margin: 0 auto 10px;
+    margin: 0 auto 5px;
     font-size: 32px;
     text-align: center;
 }
@@ -114,7 +114,7 @@ button.primary.flash {
     color: #aaa;
     font-size: 22px;
     margin-top: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 /* Undo button: round, 25% width, centered */
