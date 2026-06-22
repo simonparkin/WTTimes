@@ -32,6 +32,7 @@ const viewTimingsBtn = document.getElementById("viewTimingsBtn");
 const closeTimingsBtn = document.getElementById("closeTimingsBtn");
 const timingsModal = document.getElementById("timingsModal");
 const timingsTableBody = document.getElementById("timingsTableBody");
+const summaryContent = document.getElementById("summaryContent");
 
 // ------------------------------
 // HELPERS
@@ -239,12 +240,79 @@ function renderTimingsTable() {
 
         let label = unit.fixed ? unit.label : `Paragraph ${unit.label}`;
 
+        // Already-completed items: show what ACTUALLY happened, not the
+        // last plan they had right before being completed (that plan is
+        // stale the moment a unit is done, since live recalculation only
+        // ever touches the current/upcoming units from here on).
+        let hasActual = index < currentIndex && unit.actualSeconds !== null && unit.actualSeconds !== undefined;
+        let time = hasActual ? unit.actualSeconds : unit.seconds;
+        let timeText = hasActual
+            ? `${formatDuration(time)} <span class="timeNote">actual</span>`
+            : formatDuration(time);
+
         row.innerHTML = `
             <td>${label}</td>
-            <td>${formatDuration(unit.seconds)}</td>
+            <td>${timeText}</td>
         `;
         timingsTableBody.appendChild(row);
     });
+}
+
+// Builds the end-of-discussion summary: for every item, shows the
+// originally planned time (unit.plannedSeconds, captured once right after
+// the discussion was generated) against the actual time it took
+// (unit.actualSeconds, recorded each time Complete was pressed), plus how
+// far ahead (+) or behind (-) that item ran. Also shows an overall total.
+function renderSummaryTable() {
+    let totalPlanned = 0;
+    let totalActual = 0;
+
+    let rows = units.map(unit => {
+        let planned = unit.plannedSeconds || 0;
+        let actual = unit.actualSeconds;
+        let hasActual = actual !== null && actual !== undefined;
+
+        totalPlanned += planned;
+        if (hasActual) totalActual += actual;
+
+        let diff = hasActual ? planned - actual : null; // positive = finished early, negative = ran over
+        let diffText = diff === null
+            ? "—"
+            : (diff >= 0 ? `+${formatDuration(diff)}` : `−${formatDuration(-diff)}`);
+        let diffClass = diff !== null && diff < 0 ? "negative" : "";
+
+        let label = unit.fixed ? unit.label : `Paragraph ${unit.label}`;
+        let rowClass = unit.fixed ? "fixedRow" : "";
+
+        return `
+            <tr class="${rowClass}">
+                <td>${label}</td>
+                <td>${formatDuration(planned)}</td>
+                <td>${hasActual ? formatDuration(actual) : "—"}</td>
+                <td class="${diffClass}">${diffText}</td>
+            </tr>
+        `;
+    }).join("");
+
+    let overallDiff = totalPlanned - totalActual;
+    let overallText = overallDiff >= 0
+        ? `Finished ${formatDuration(overallDiff)} ahead of schedule overall.`
+        : `Finished ${formatDuration(-overallDiff)} behind schedule overall.`;
+
+    summaryContent.innerHTML = `
+        <table class="dataTable">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Planned</th>
+                    <th>Actual</th>
+                    <th>+/−</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <p class="summaryOverall">${overallText}</p>
+    `;
 }
 
 function updateDisplay() {
@@ -253,16 +321,29 @@ function updateDisplay() {
         ? unit.label.toUpperCase()
         : `PARAGRAPH ${unit.label}`;
 
-    if (hasStarted) {
+    if (!hasStarted) {
+        // Not started yet: blank placeholder, no red.
+        currentTargetFinishTime = null;
+        targetFinish.textContent = "--:--:--";
+        targetFinish.classList.remove("overdue");
+    } else if (remainingSeconds <= 0 || unit.seconds <= 0) {
+        // No sensible target time left to show. This covers two cases:
+        // - remainingSeconds <= 0: the whole meeting's overall time budget
+        //   has been used up by earlier overruns, so even a fixed item
+        //   (which always plans for exactly 60s) shouldn't show a calm
+        //   "now + 1 minute" — there's genuinely no time left overall.
+        // - unit.seconds <= 0: this specific paragraph's own word-based
+        //   share has been squeezed to nothing by upcoming fixed costs.
+        currentTargetFinishTime = null;
+        targetFinish.textContent = "--:--:--";
+        targetFinish.classList.add("overdue");
+    } else {
         let now = new Date();
         let finish = new Date(now.getTime() + unit.seconds * 1000);
         currentTargetFinishTime = finish;
         targetFinish.textContent = formatTime(finish);
-    } else {
-        currentTargetFinishTime = null;
-        targetFinish.textContent = "--:--:--";
+        targetFinish.classList.remove("overdue");
     }
-    targetFinish.classList.remove("overdue");
 
     nextPara.textContent =
         currentIndex < units.length - 1
@@ -281,25 +362,73 @@ setInterval(() => {
     }
 }, 1000);
 
-// Redistributes remainingSeconds across the still-to-come PARAGRAPH units only.
-// Fixed units (Opening/Closing Comments, Review Questions) always keep their
-// fixed allocation (e.g. 60 seconds) and are excluded from this math.
+// Two different rules depending on whether the discussion is currently
+// ahead of or behind its original plan:
+//
+// AHEAD of schedule (banked-up surplus time): the surplus is shared
+// proportionally across EVERYTHING still ahead — paragraphs and fixed
+// items alike — continuously, the whole way through. This avoids all the
+// saved time piling onto whichever paragraphs happen to be left (which
+// would make, say, the very last paragraph balloon to an absurd planned
+// time) only to suddenly "unlock" for the fixed items the moment
+// paragraphs run out. Each unit's share of a surplus is proportional to
+// its own originally-planned allocation (unit.plannedSeconds).
+//
+// BEHIND schedule (a deficit to make up): paragraphs absorb it first,
+// shrinking down to a 30s floor each, before fixed items (Opening/Closing
+// Comments, Review Questions) are touched at all. Only once paragraphs
+// have hit that floor and there's still a deficit do fixed items start
+// shrinking too, shared evenly among whatever's left.
 function recalcVariableSeconds() {
+    const PARAGRAPH_FLOOR_SECONDS = 30;
+
     let upcoming = units.slice(currentIndex);
+    if (upcoming.length === 0) return;
 
-    let fixedSecondsUpcoming = upcoming
-        .filter(u => u.fixed)
-        .reduce((sum, u) => sum + u.seconds, 0);
+    let fixedUpcoming = upcoming.filter(u => u.fixed);
+    let paragraphsUpcoming = upcoming.filter(u => !u.fixed);
 
-    let variableUpcoming = upcoming.filter(u => !u.fixed);
-    let variableTimeRemaining = remainingSeconds - fixedSecondsUpcoming;
-    let variableWords = variableUpcoming.reduce((sum, u) => sum + u.words, 0);
+    let nominalRemainingTotal = upcoming.reduce((sum, u) => sum + (u.plannedSeconds || 0), 0);
 
-    variableUpcoming.forEach(u => {
-        u.seconds = variableWords > 0
-            ? (u.words / variableWords) * variableTimeRemaining
-            : 0;
-    });
+    if (nominalRemainingTotal > 0 && remainingSeconds >= nominalRemainingTotal) {
+        // On pace or ahead: share the surplus proportionally across
+        // everything still ahead, fixed items included.
+        let scale = remainingSeconds / nominalRemainingTotal;
+        upcoming.forEach(u => { u.seconds = (u.plannedSeconds || 0) * scale; });
+        return;
+    }
+
+    // Behind schedule (or no planned baseline yet) — paragraphs absorb the
+    // deficit first, down to a floor, before fixed items are touched.
+    if (paragraphsUpcoming.length === 0) {
+        let share = fixedUpcoming.length > 0 ? remainingSeconds / fixedUpcoming.length : 0;
+        fixedUpcoming.forEach(u => { u.seconds = share; });
+        return;
+    }
+
+    let fixedFullTotal = fixedUpcoming.length * 60;
+    let timeForParagraphsIfFixedFull = remainingSeconds - fixedFullTotal;
+    let paragraphFloorTotal = paragraphsUpcoming.length * PARAGRAPH_FLOOR_SECONDS;
+    let paragraphWords = paragraphsUpcoming.reduce((sum, u) => sum + u.words, 0);
+
+    if (timeForParagraphsIfFixedFull >= paragraphFloorTotal) {
+        // Affordable: fixed items keep their full planned 60s, paragraphs
+        // split whatever's left by word count (never below the floor here,
+        // since we already confirmed it's affordable).
+        fixedUpcoming.forEach(u => { u.seconds = 60; });
+        paragraphsUpcoming.forEach(u => {
+            u.seconds = paragraphWords > 0
+                ? (u.words / paragraphWords) * timeForParagraphsIfFixedFull
+                : timeForParagraphsIfFixedFull / paragraphsUpcoming.length;
+        });
+    } else {
+        // Not affordable: paragraphs are floored at 30s each, and the
+        // fixed items absorb the remaining squeeze, shared evenly.
+        paragraphsUpcoming.forEach(u => { u.seconds = PARAGRAPH_FLOOR_SECONDS; });
+        let timeLeftForFixed = remainingSeconds - paragraphFloorTotal;
+        let share = fixedUpcoming.length > 0 ? timeLeftForFixed / fixedUpcoming.length : 0;
+        fixedUpcoming.forEach(u => { u.seconds = share; });
+    }
 }
 
 // ------------------------------
@@ -348,6 +477,15 @@ generateBtn.onclick = async () => {
 
     recalcVariableSeconds();
 
+    // Capture the originally planned allocation for every unit, once, as
+    // the baseline the end-of-discussion summary will compare actual time
+    // against. Restarting the same discussion re-recalculates live
+    // .seconds for display, but this baseline stays fixed.
+    units.forEach(u => {
+        u.plannedSeconds = u.seconds;
+        u.actualSeconds = null;
+    });
+
     completeBtn.textContent = "START";
     updateDisplay();
     showScreen(discussionScreen);
@@ -371,16 +509,20 @@ completeBtn.onclick = () => {
     }
 
     let elapsed = (now - startTime) / 1000;
+    let completedUnit = units[currentIndex];
 
     history.push({
         index: currentIndex,
-        remaining: remainingSeconds
+        remaining: remainingSeconds,
+        prevActualSeconds: completedUnit.actualSeconds
     });
 
+    completedUnit.actualSeconds = elapsed;
     remainingSeconds -= elapsed;
 
     currentIndex++;
     if (currentIndex >= units.length) {
+        renderSummaryTable();
         showScreen(summaryScreen);
         return;
     }
@@ -395,6 +537,7 @@ undoBtn.onclick = () => {
     if (history.length === 0) return;
 
     let last = history.pop();
+    units[last.index].actualSeconds = last.prevActualSeconds;
     currentIndex = last.index;
     remainingSeconds = last.remaining;
     startTime = new Date();
@@ -414,6 +557,8 @@ restartBtn.onclick = () => {
     hasStarted = false;
     startTime = null;
     remainingSeconds = totalAllocated;
+
+    units.forEach(u => { u.actualSeconds = null; });
 
     recalcVariableSeconds();
 

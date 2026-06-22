@@ -89,7 +89,7 @@ button.primary.flash {
 
 /* Current item label, top of screen, large and centered */
 .itemLabel {
-    width: 50%;
+    width: 100%;
     margin: 0 auto 5px;
     font-size: 32px;
     text-align: center;
@@ -193,4 +193,43 @@ button.round {
 
 #timingsTable tr.fixedRow td {
     color: #aaa;
+}
+
+.timeNote {
+    color: #aaa;
+    font-size: 14px;
+    margin-left: 4px;
+}
+
+#summaryScreen {
+    max-width: 480px;
+    margin: 0 auto;
+}
+.dataTable {
+    width: 100%;
+    max-width: 480px;
+    margin: 16px auto;
+    border-collapse: collapse;
+    font-size: 18px;
+}
+
+.dataTable th,
+.dataTable td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid #333;
+}
+
+.dataTable tr.fixedRow td {
+    color: #aaa;
+}
+
+.dataTable td.negative {
+    color: #ff3b30;
+}
+
+.summaryOverall {
+    text-align: center;
+    font-size: 18px;
+    margin-top: 16px;
 }
