@@ -1,0 +1,244 @@
+body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+}
+
+.screen {
+    padding: 20px;
+}
+
+#backFromSettingsBtn {
+    width: auto;
+    padding: 8px 16px;
+    margin: 16px auto 0;
+    display: block;
+    background: transparent;
+    border: 1px solid #333;
+}
+
+.hidden {
+    display: none;
+}
+
+h1, h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-top: 20px;
+    margin-bottom: 5px;
+}
+
+textarea {
+    width: 100%;
+    height: 200px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    padding: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+select, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 16px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    box-sizing: border-box;
+}
+
+button.primary {
+    background: #007bff;
+    border: none;
+}
+
+/* Generate button: round, 30% width, capped at 300px */
+#generateBtn {
+    width: 50%;
+    max-width: 300px;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    margin: 20px auto 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Main START/COMPLETE button: round, 50% width, centered */
+button.primary.big {
+    width: 50%;
+    max-width: 300px;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    margin: 24px auto 0;
+    padding: 0;
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+button.primary.flash {
+    background: #00c851 !important; /* green flash */
+}
+
+/* Current item label, top of screen, large and centered */
+.itemLabel {
+    width: 100%;
+    margin: 0 auto 5px;
+    font-size: 32px;
+    text-align: center;
+}
+
+/* Remaining time, large and centered */
+.bigTime {
+    width: 100%;
+    margin: 0 auto;
+    font-size: clamp(48px, 22vw, 112px);
+    font-weight: bold;
+    text-align: center;
+}
+
+.bigTime.overdue {
+    color: #ff3b30;
+}
+
+/* Small "next" caption under the big time */
+.nextInfo {
+    text-align: center;
+    color: #aaa;
+    font-size: 22px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+}
+
+/* Undo button: round, 25% width, centered */
+button.round {
+    width: 25%;
+    max-width: 150px;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    margin: 20px auto 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Restart / Settings: centered pair on their own row */
+.bottomButtons {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.bottomButtons button {
+    width: 30%;
+}
+
+/* Timings modal */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modalOverlay.hidden {
+    display: none;
+}
+
+.modalCard {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+#timingsTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 21px;
+}
+
+#timingsTable th,
+#timingsTable td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid #333;
+}
+
+#timingsTable tr.currentRow {
+    background: #002244;
+}
+
+#timingsTable tr.fixedRow td {
+    color: #aaa;
+}
+
+.timeNote {
+    color: #aaa;
+    font-size: 14px;
+    margin-left: 4px;
+}
+
+#summaryScreen {
+    max-width: 480px;
+    margin: 0 auto;
+}
+.dataTable {
+    width: 100%;
+    max-width: 480px;
+    margin: 16px auto;
+    border-collapse: collapse;
+    font-size: 18px;
+}
+
+.dataTable th,
+.dataTable td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid #333;
+}
+
+.dataTable tr.fixedRow td {
+    color: #aaa;
+}
+
+.dataTable td.negative {
+    color: #ff3b30;
+}
+
+.summaryOverall {
+    text-align: center;
+    font-size: 18px;
+    margin-top: 16px;
+}
