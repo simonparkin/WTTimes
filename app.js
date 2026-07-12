@@ -1,156 +1,649 @@
+// ------------------------------
+// GLOBAL STATE
+// ------------------------------
+let units = [];              // grouped paragraph units
+let currentIndex = 0;        // which unit we're on
+let startTime = null;        // when discussion started
+let history = [];            // for undo
+let totalAllocated = 0;      // total allocated seconds
+let remainingSeconds = 0;    // remaining time
+let hasStarted = false;      // whether the START button has been pressed yet
+let currentTargetFinishTime = null; // Date the current item is supposed to finish by
+let clockStyle = "clock";    // "clock" (wall-clock target time) or "countdown" (counts down)
+let cameFromScreen = null;   // which screen "Back" on the settings screen should return to
 
-Watchtower ONLINE LIBRARY
-English
-Enter Topic
- 
-BIBLE
-PUBLICATIONS
-MEETINGS
-w26 May pp. 2-7Bible Principles—Why Are They Important?
-w26 May p. 3
-mejs.audio-player
-00:00
-Bible Principles—Why Are They Important?
-The Watchtower Announcing Jehovah’s Kingdom (Study)—2026
-Subheadings
- 
-Similar Material
-WHAT ARE BIBLE PRINCIPLES?
-WHY ARE BIBLE PRINCIPLES IMPORTANT?
-HOW CAN WE IDENTIFY BIBLE PRINCIPLES?
-BE DETERMINED TO LIVE BY BIBLE PRINCIPLES
-JULY 6-12, 2026
+// ------------------------------
+// SCREEN ELEMENTS
+// ------------------------------
+const settingsScreen = document.getElementById("settingsScreen");
+const discussionScreen = document.getElementById("discussionScreen");
+const summaryScreen = document.getElementById("summaryScreen");
 
-SONG 98 The Scriptures​—Inspired of God
+const currentParaLabel = document.getElementById("currentParaLabel");
+const articleTitleDisplay = document.getElementById("articleTitleDisplay");
+const targetFinish = document.getElementById("targetFinish");
+const nextPara = document.getElementById("nextPara");
 
-Bible Principles​—Why Are They Important?
-“Present your bodies as . . . a sacred service with your power of reason.”​—ROM. 12:1.
+const generateBtn = document.getElementById("generateBtn");
+const completeBtn = document.getElementById("completeBtn");
+const undoBtn = document.getElementById("undoBtn");
+const restartBtn = document.getElementById("restartBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const backFromSettingsBtn = document.getElementById("backFromSettingsBtn");
+const clockStyleSelect = document.getElementById("clockStyleSelect");
+const backToSettingsBtn = document.getElementById("backToSettings");
+const viewTimingsBtn = document.getElementById("viewTimingsBtn");
+const closeTimingsBtn = document.getElementById("closeTimingsBtn");
+const timingsModal = document.getElementById("timingsModal");
+const timingsTableBody = document.getElementById("timingsTableBody");
+const summaryContent = document.getElementById("summaryContent");
 
-FOCUS
 
-To explain what principles are and how we can identify them when we read the Bible.
+// ------------------------------
+// HELPERS
+// ------------------------------
+function showScreen(screen) {
+    settingsScreen.classList.add("hidden");
+    discussionScreen.classList.add("hidden");
+    summaryScreen.classList.add("hidden");
+    screen.classList.remove("hidden");
+}
 
-1-2. (a) Why can the Bible be called an ancient book? (b) Why is the Bible still relevant today?
+// The article title is simply the first non-empty line of the pasted text.
+// The article title is usually the first non-empty line of the pasted
+// text. But if the user pastes the whole WOL page (header, nav menu, etc.
+// included), the real title is repeated several times before the actual
+// article starts — so instead we anchor on the opening theme song line
+// (e.g. "SONG 122 Be Steadfast, Immovable!"), which always appears
+// immediately before the real title.
+function extractArticleTitle(text) {
+    let lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
-Your answers
-THE Bible is an ancient book. Its writing was started some 3,500 years ago, and it was completed nearly 2,000 years ago. And yet “the word of God” found within its pages is alive and powerful today. (Heb. 4:12; 2 Tim. 3:16, 17) Millions of people testify that the Bible has helped them to cope with life in this modern world.
+    let songIndex = lines.findIndex(l => /^SONG\s+\d+/i.test(l));
+    if (songIndex !== -1 && songIndex + 1 < lines.length) {
+        return lines[songIndex + 1];
+    }
 
-2 But how could such an old book still be relevant today? There are two basic reasons. First, the Bible’s message comes from the “living God,” the all-wise Creator. (1 Tim. 4:10; Rom. 16:26, 27) Second, the Bible is written in a way that reveals timeless principles. These principles remain beneficial no matter what era a person lives in or what challenges a person faces.
+    return lines.length > 0 ? lines[0] : "";
+}
 
-3. What questions will be answered in this article?
+function parseParagraphs(text) {
+    text = text.replace(/\r/g, "");
 
-Your answer
-3 What are Bible principles? Why are they so important for us today? How can we identify principles when we read the Bible? This article will answer these questions. We will also see how the teachings of Jesus highlight the value of principles.
+    // Force a blank line before any numbered line (e.g. "3." or "1-2.").
+    // This separates section headings and "Your answer" lines that are
+    // glued directly onto the next line with no blank line between them,
+    // so every question/paragraph reliably becomes its own block.
+    text = text.replace(/\n(?=\d+(?:-\d+)?[\.\s])/g, "\n\n");
 
-WHAT ARE BIBLE PRINCIPLES?
-4. What are Bible principles?
+    // Remove "Your answer" placeholder lines entirely (now isolated on
+    // their own line thanks to the step above).
+    text = text.replace(/^Your answers?\s*$/gim, "");
 
-Your answer
-4 Bible principles are basic truths on which God’s laws are based. At times, a principle may be clearly stated within the law. (Matt. 22:37) Principles are, however, superior to specific laws. Specific laws may be limited in application. They may be given for a particular time or situation. But Bible principles reflect Jehovah’s thinking in a broader sense. Principles could be described as the reason behind the law. There is a valid reason behind every one of Jehovah’s laws. But the principles on which they are based can be applied in a number of different circumstances and are timeless. (Ps. 119:111) Laws may need to change, but principles do not expire or become outdated.​—Isa. 40:8.
+    return text
+        .split(/\n\s*\n+/)
+        .map(p => p.trim())
+        .filter(p => p.length > 0)
+        // Remove ALL CAPS subheadings (but keep numbered paragraphs)
+        .filter(p => {
+            if (/^[A-Z0-9 ,.'’\-:()?!]+$/.test(p)) {
+                if (/^\d/.test(p)) return true; // keep paragraphs like "3 Adversities..."
+                return false; // remove subheading
+            }
+            return true;
+        });
+}
 
-5. How can we illustrate the difference between laws and principles? (See also pictures.)
 
-Your answer
-5 To help us better understand the difference between laws and principles, consider this illustration. A mother may say to a small child, ‘Don’t touch the stove.’ That is a command or a law. But the principle, or thinking, behind that law is: Don’t touch something that is hot; otherwise, you will get hurt. That principle is not just limited to a stove. It could be applied to a clothing iron, a heater, or any other hot item that could cause injury. That principle does not just apply in the family’s home but applies elsewhere too. Of course, as the child grows older, he will probably use the stove. However, he will still need to be careful not to touch it in a way that would harm him. So the law may change, but the basic principle behind it remains.
+function detectGroups(paragraphs) {
+    let groups = [];
+    let i = 0;
+    let lastConsumedEnd = 0; // index right after the last group's consumed blocks
 
-Collage: A mother and her son cooking together in the kitchen. 1. She warns her young son not to touch the hot stove as she cooks. 2. Years later, she prepares a meal with her son as he cooks on the stove.
-A law may change, but the basic principle behind it remains (See paragraph 5)
+    while (i < paragraphs.length) {
+        let p = paragraphs[i];
 
-WHY ARE BIBLE PRINCIPLES IMPORTANT?
-6. (a) What does Jehovah provide for us in his Word? (b) How does Jehovah dignify us?
+        // Detect study question like "1-2." or "3."
+        let match = p.match(/^(\d+)(?:-(\d+))?[\.\s]/);
 
-Your answers
-6 Out of love for us, Jehovah gives us specific direction in the form of laws so that we can avoid danger. (Jas. 2:11) Additionally, he helps us to understand the principles, or the thinking, behind those laws. By means of his Word, he provides us with his guidance in many areas of life that may not be governed by specific laws. Bible principles help us to make good decisions in life and to do what is right. By providing these principles, Jehovah dignifies us and allows us the freedom to make decisions that prove our love for him and his standards.​—Gal. 5:13.
+        if (match) {
+            let start = parseInt(match[1]);
+            let end = match[2] ? parseInt(match[2]) : start;
+            let needed = end - start + 1; // how many answer paragraphs to expect
 
-7. How can we illustrate the value of Bible principles? (See also picture.)
+            // Simply take the next `needed` blocks as the answer paragraphs.
+            // This naturally handles paragraph 1, which is never numbered
+            // (it's just plain text), since it's still the very next block
+            // after its question.
+            let combinedBlocks = [p];
+            let consumed = 0;
+            let j = i + 1;
+            while (consumed < needed && j < paragraphs.length) {
+                combinedBlocks.push(paragraphs[j]);
+                consumed++;
+                j++;
+            }
 
-Your answer
-7 To illustrate how Bible principles can help us, think of the road signs that drivers see along highways in some countries. Many of these signs inform us of laws that carry penalties for those who disregard them. These signs may specify the maximum speed limit or indicate when a driver must bring his vehicle to a stop. However, many other signs alert drivers to possible dangers. For example, these signs may warn that the road might be slippery or that animals might be crossing the road. An experienced driver uses good judgment and drives cautiously when he sees signs that alert him to dangers. For example, if it is raining or snowing, the driver will adjust his driving in these dangerous conditions. Similarly, while Christians strictly avoid any conduct that is specifically condemned in God’s Word, they also avoid any thoughts or actions that could lead them to break God’s laws. This calls for good judgment on their part.
+            if (consumed < needed) {
+                console.warn(
+                    `Expected ${needed} paragraph(s) for "${match[0].trim()}" but only found ${consumed}.`
+                );
+            }
 
-A car being driven on a winding mountainside road at night. Its headlights illuminate warning signs.
-Many road signs represent warnings that alert drivers to possible dangers. Bible principles can help us in a similar way (See paragraph 7)
+            // Merge everything into one discussion unit
+            let combined = combinedBlocks.join(" ");
+            let wordCount = combined.split(/\s+/).filter(Boolean).length;
 
-8. As mentioned at Romans 12:1, 2, what can our search for Bible principles train us to do?
+            groups.push({
+                label: match[2] ? `${start}-${end}` : `${start}`,
+                text: combined,
+                words: wordCount
+            });
 
-Your answer
-8 However, there are other important benefits that come from searching for Bible principles and living by them. For example, we are trained to understand Jehovah’s thinking on matters. When reading accounts in the Scriptures, we learn to look for practical lessons. We ask ourselves why Jehovah included these lessons in his written Word and how we can benefit from them. In this way, we learn how to use our “power of reason” to serve Jehovah. We prove to ourselves “the good and acceptable and perfect will of God.”​—Read Romans 12:1, 2.a
+            i = j; // move past the question AND all the blocks we consumed
+            lastConsumedEnd = j;
+        } else {
+            i++;
+        }
+    }
 
-9. What additional benefit do we gain from living by Bible principles? (Hebrews 5:13, 14)
+    // Anything after the last paragraph group (e.g. review questions at
+    // the end of the article) is returned separately so the caller can
+    // decide what to do with it.
+    return { groups, leftover: paragraphs.slice(lastConsumedEnd) };
+}
 
-Your answer
-9 Learning to live by Bible principles helps us to become mature Christians. When we live by Bible principles, our relationship with Jehovah improves. (Read Hebrews 5:13, 14.) Young children may need an extensive list of laws, or rules, so that they will know how to act in various situations. They may obey these rules simply out of fear of punishment. But Jehovah treats us, not as young children, but as mature adults. He trusts us to make decisions that are in harmony with his will, and when we do so, this brings great joy to his heart.​—Ps. 147:11; Prov. 23:15, 26; 27:11.
+// Counts review questions structurally: any leftover text blocks after the
+// last numbered paragraph, stopping at the closing "SONG ..." line or a
+// footnote line (e.g. "a For instance..."). This works regardless of how
+// the heading above the review questions is worded (or whether one exists).
+function countReviewQuestions(leftover) {
+    let count = 0;
+    for (let p of leftover) {
+        if (/^SONG\b/i.test(p)) break;
+        if (/^[a-z]\s/.test(p)) break; // footnote line
+        count++;
+    }
+    return count;
+}
 
-HOW CAN WE IDENTIFY BIBLE PRINCIPLES?
-10. How can we identify Bible principles?
+// Finds "Read <Book> <chapter>:<verses>" citations within a paragraph's
+// text. These are scriptures that get read aloud during the discussion,
+// so their actual word count should count toward that paragraph's time.
+// Detection is anchored purely on the literal word "Read" immediately
+// preceding the citation — NOT on whether the book name looks "full" vs
+// "abbreviated." That distinction isn't reliable anyway, since several
+// books (Luke, Mark, Ruth, Job, Amos, etc.) have no separate short form
+// at all, so their abbreviated and full names are identical.
+function parseReadCitations(text) {
+    let regex = /Read\s+((?:[1-3]\s)?[A-Za-z]+)\s+(\d+):([\d,\-\s]+)/gi;
+    let matches = [];
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+        matches.push({ book: m[1].trim(), chapter: m[2], verseList: m[3].trim() });
+    }
+    return matches;
+}
 
-Your answer
-10 When we search the Bible for lessons, we find principles that help us to understand how Jehovah thinks and feels about matters. We can also identify principles when we look for the reasons behind certain laws. The more we understand the reasons, the more we understand Jehovah. But in order to understand God’s thinking, we must pray to him for help and we must develop our own thinking ability. (Prov. 2:10-12) We can ask ourselves such questions as: ‘Why did God give this law? If Jehovah does not approve of this conduct, how would he feel about similar conduct? What lesson do I learn from this Bible account, and how can I apply it in my life?’ Once we identify the reasons and the lessons behind the laws and the accounts in the Bible, we will be able to make good decisions in life​—decisions that are in harmony with Jehovah’s will.
+// "7, 11" -> ["7", "11"]   "7-11" stays as a single range token "7-11"
+function expandVerseTokens(verseListStr) {
+    return verseListStr.split(",").map(s => s.trim()).filter(Boolean);
+}
 
-11. In what way did Jesus show us how to identify Bible principles in his Sermon on the Mount? (See also picture.)
+// Fetches the actual text of a single verse or verse range from a free,
+// keyless Bible API, and returns its word count. Returns 0 on any failure
+// (no internet, verse not found, etc.) so a lookup problem never crashes
+// the app — it just slightly under-counts that paragraph's words.
+async function fetchVerseWordCount(book, chapter, token) {
+    let ref = `${book.replace(/\s+/g, "+")}+${chapter}:${token}`;
+    let url = `https://bible-api.com/${ref}?translation=web`;
+    try {
+        let res = await fetch(url);
+        let data = await res.json();
+        if (data && data.text) {
+            return data.text.trim().split(/\s+/).filter(Boolean).length;
+        }
+    } catch (e) {
+        console.warn("Could not fetch verse text for " + ref, e);
+    }
+    return 0;
+}
 
-Your answer
-11 In his Sermon on the Mount, Jesus showed us how we can identify Bible principles. Let us examine three examples. In each case, Jesus first stated the law. Then he revealed the thinking, or the principle, behind that law. As we meditate on what Jesus revealed, we will see how these principles can be applied in our modern world. At the same time, we will discern the practical benefits of these life lessons.
+// Scans a unit's text for "Read ___" citations and adds the real word
+// count of each cited verse/range onto unit.words.
+async function addReadScriptureWords(unit) {
+    let citations = parseReadCitations(unit.text);
+    for (let citation of citations) {
+        let tokens = expandVerseTokens(citation.verseList);
+        for (let token of tokens) {
+            let words = await fetchVerseWordCount(citation.book, citation.chapter, token);
+            unit.words += words;
+        }
+    }
+}
 
-Jesus sitting under a tree, teaching a group of his disciples.
-In his Sermon on the Mount, Jesus showed us how to identify the Bible principles behind God’s laws (See paragraph 11)
 
-12. What is one principle behind the law stated at Matthew 5:21, 22? (See also picture.)
+function formatTime(date) {
+    return date.toTimeString().slice(0, 8);
+}
 
-Your answer
-12 Read Matthew 5:21, 22. “You must not murder.” What is one principle behind this law? Jehovah does not want us to hate others​—in action, word, or even thought. Jesus indicated that even though a person may not commit an act of murder, he could still violate the reason for that law if he hates his brother. If someone “continues wrathful with his brother” or verbally abuses him, the individual who is wrathful would still be “accountable.” In fact, these are the very attitudes and actions that lead to murder.​—1 John 3:15.
+// Formats a number of seconds as "m:ss"
+function formatDuration(seconds) {
+    let total = Math.round(seconds);
+    let m = Math.floor(total / 60);
+    let s = total % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
-13. How can we apply the principle found at Matthew 5:21, 22 in our life? (See also picture.)
+function renderTimingsTable() {
+    timingsTableBody.innerHTML = "";
 
-Your answer
-13 How can the principle found at Matthew 5:21, 22 be applied today? We should avoid becoming resentful or holding a grudge. (Lev. 19:18; Job 36:13) Why? Because these feelings can stir up hatred in our heart, which may lead to hurtful speech or actions. (Prov. 10:12) This includes gossip and slander that can damage or ruin the reputation of others. (Prov. 20:19; 25:23) So even before there were such things as social media, blogs, the Internet, or messaging apps, Jesus provided a principle that would alert mature Christians to the possible dangers when using these modern tools. In all situations, though, we should avoid hateful speech that could lead to what is often called character assassination.
+    units.forEach((unit, index) => {
+        let row = document.createElement("tr");
+        if (index === currentIndex) row.classList.add("currentRow");
+        if (unit.fixed) row.classList.add("fixedRow");
 
-Collage: 1. The text block states the Bible law: “You must not murder.” 2. Two sisters gossip while another sister listens uncomfortably to what they are saying.
-(See paragraphs 12-13)
+        let label = unit.fixed ? unit.label : `Paragraph ${unit.label}`;
 
-14. What is the principle behind the law stated at Matthew 5:27, 28? (See also picture.)
+        // Already-completed items: show what ACTUALLY happened, not the
+        // last plan they had right before being completed (that plan is
+        // stale the moment a unit is done, since live recalculation only
+        // ever touches the current/upcoming units from here on).
+        let hasActual = index < currentIndex && unit.actualSeconds !== null && unit.actualSeconds !== undefined;
+        let time = hasActual ? unit.actualSeconds : unit.seconds;
+        let timeText = hasActual
+            ? `${formatDuration(time)} <span class="timeNote">actual</span>`
+            : formatDuration(time);
 
-Your answer
-14 Read Matthew 5:27, 28. “You must not commit adultery.” What is the principle behind this law? Jehovah hates not only immorality but also thoughts that can lead to immoral conduct. Jesus explained that if a married man continues to look at a woman (other than his wife) in such a way as to have a passion for her, he has sinned. So immoral thoughts should be avoided at all costs, even if this requires intense effort on our part. (Matt. 5:29, 30) This principle also applies to single Christians.
+        row.innerHTML = `
+            <td>${label}</td>
+            <td>${timeText}</td>
+        `;
+        timingsTableBody.appendChild(row);
+    });
+}
 
-15. How can the principle found at Matthew 5:27, 28 be applied today? (See also picture.)
+// Builds the end-of-discussion summary: for every item, shows the
+// originally planned time (unit.plannedSeconds, captured once right after
+// the discussion was generated) against the actual time it took
+// (unit.actualSeconds, recorded each time Complete was pressed), plus how
+// far ahead (+) or behind (-) that item ran. Also shows an overall total.
+function renderSummaryTable() {
+    let totalPlanned = 0;
+    let totalActual = 0;
 
-Your answer
-15 How can the principle found at Matthew 5:27, 28 be applied today? We should avoid dwelling on immoral desires. (2 Sam. 11:2-4; Job 31:1-3) Obviously, then, a mature Christian avoids all forms of pornography. He does not reason that he is only looking at immorality, so he is not doing anything wrong. He does not try to excuse such activity as simply looking at “soft porn,” which some consider to be less offensive than more explicit forms of pornography. In Jesus’ day, there were no electronic devices, movies, or photographs. Even so, Jesus gave us a principle that teaches us how Jehovah feels about the material that might be published on such modern devices. This helps us understand that Jehovah would be greatly displeased by such modern practices as sexting or engaging in virtual activities that mimic sexual immorality. Heeding this principle helps a married person to avoid dealing treacherously with his or her marriage mate. (Mal. 2:15) It also helps all Christians​—married or single—​to avoid anything that could lead to sexual immorality.​—Prov. 5:3-14.
+    let rows = units.map(unit => {
+        let planned = unit.plannedSeconds || 0;
+        let actual = unit.actualSeconds;
+        let hasActual = actual !== null && actual !== undefined;
 
-Collage: 1. The text block states the Bible law: “You must not commit adultery.” 2. A brother deletes a social media app from his phone.
-(See paragraphs 14-15)
+        totalPlanned += planned;
+        if (hasActual) totalActual += actual;
 
-16. What is the principle behind the law stated at Matthew 5:43, 44? (See also picture.)
+        let diff = hasActual ? planned - actual : null; // positive = finished early, negative = ran over
+        let diffText = diff === null
+            ? "—"
+            : (diff >= 0 ? `+${formatDuration(diff)}` : `−${formatDuration(-diff)}`);
+        let diffClass = diff !== null && diff < 0 ? "negative" : "";
 
-Your answer
-16 Read Matthew 5:43, 44. “You must love your neighbor.” What is the principle behind this law? Jehovah wants us to view all as our neighbor and show them love. Sadly, the Jews in Jesus’ day had misapplied this instruction to mean that they could hate their enemies. But Jesus knew that this was not the intent of this law. He knew that his loving heavenly Father expects us to view everyone as our neighbor, regardless of race or nationality.​—Matt. 5:45-48.
+        let label = unit.fixed ? unit.label : `Paragraph ${unit.label}`;
+        let rowClass = unit.fixed ? "fixedRow" : "";
 
-17. What is the benefit of applying the principle found at Matthew 5:43, 44 in our life? (See also picture.)
+        return `
+            <tr class="${rowClass}">
+                <td>${label}</td>
+                <td>${formatDuration(planned)}</td>
+                <td>${hasActual ? formatDuration(actual) : "—"}</td>
+                <td class="${diffClass}">${diffText}</td>
+            </tr>
+        `;
+    }).join("");
 
-Your answer
-17 How can we apply the principle found at Matthew 5:43, 44 today? Love of neighbor will move us to refuse to get involved in this world’s wars and conflicts. (Isa. 2:4; Mic. 4:3) It will help us to deal kindly with those who are from a different racial, national, or religious background. (Acts 10:34, 35) It will also help us to forgive others who have hurt us or have hurt those whom we love.​—Matt. 18:21, 22; Mark 11:25; Luke 17:3, 4.
+    let overallDiff = totalPlanned - totalActual;
+    let overallText = overallDiff >= 0
+        ? `Finished ${formatDuration(overallDiff)} ahead of schedule overall.`
+        : `Finished ${formatDuration(-overallDiff)} behind schedule overall.`;
 
-Collage: 1. The text block states the Bible law: “You must love your neighbor.” 2. A couple in the ministry show the “Enjoy Life Forever!” brochure to a man of a different race in a market.
-(See paragraphs 16-17)
+    summaryContent.innerHTML = `
+        <table class="dataTable">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Planned</th>
+                    <th>Actual</th>
+                    <th>+/−</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <p class="summaryOverall">${overallText}</p>
+    `;
+}
 
-BE DETERMINED TO LIVE BY BIBLE PRINCIPLES
-18. (a) What should we be determined to do? (b) What will we discuss in the next article?
+// Renders the big clock for whatever the current target finish time is,
+// in whichever style is currently selected:
+//   - "clock": the actual wall-clock time the current item should finish by
+//     (doesn't need to change second-to-second, just needs the overdue
+//     class toggled once the moment passes).
+//   - "countdown": how much time is left until that same moment, ticking
+//     down every second; once passed, counts up past zero as "-m:ss" to
+//     show how far overdue.
+// If there's no valid target (not started yet, or no time left at all),
+// updateDisplay() already set the placeholder text directly and this is a
+// no-op — there's nothing to tick.
+function renderClock() {
+    if (!currentTargetFinishTime) return;
 
-Your answers
-18 How grateful we are that Jehovah is willing to treat us as adults and not as small children! He wants us to apply Bible principles that will help us with the decisions we regularly make. (1 Cor. 14:20) As we make those decisions, let us be determined to “keep perceiving what the will of Jehovah is.” (Eph. 5:17) Our love for Jehovah, not fear of punishment, will help us make decisions that are in harmony with his will. But there is another gift that will help us in this endeavor. It is our conscience. That is what we will discuss in the next article.
+    let now = new Date();
+    let diffMs = currentTargetFinishTime.getTime() - now.getTime();
+    let overdue = diffMs <= 0;
 
-HOW WOULD YOU ANSWER?
-What is a Bible principle?
+    if (clockStyle === "countdown") {
+        let totalSeconds = Math.round(Math.abs(diffMs) / 1000);
+        targetFinish.textContent = overdue
+            ? `-${formatDuration(totalSeconds)}`
+            : formatDuration(totalSeconds);
+    } else {
+        targetFinish.textContent = formatTime(currentTargetFinishTime);
+    }
 
-Your answer
-How do principles differ from laws?
+    targetFinish.classList.toggle("overdue", overdue);
+}
 
-Your answer
-What are some of the principles that Jesus taught in the Sermon on the Mount?
+function updateDisplay() {
+    let unit = units[currentIndex];
+    currentParaLabel.textContent = unit.fixed
+        ? unit.label.toUpperCase()
+        : `PARAGRAPH ${unit.label}`;
 
-Your answer
-SONG 95 The Light Gets Brighter
+    if (!hasStarted) {
+        // Not started yet: blank placeholder, no red.
+        currentTargetFinishTime = null;
+        targetFinish.textContent = "--:--:--";
+        targetFinish.classList.remove("overdue");
+    } else if (remainingSeconds <= 0 || unit.seconds <= 0) {
+        // No sensible target time left to show. This covers two cases:
+        // - remainingSeconds <= 0: the whole meeting's overall time budget
+        //   has been used up by earlier overruns, so even a fixed item
+        //   (which always plans for exactly 60s) shouldn't show a calm
+        //   "now + 1 minute" — there's genuinely no time left overall.
+        // - unit.seconds <= 0: this specific paragraph's own word-based
+        //   share has been squeezed to nothing by upcoming fixed costs.
+        currentTargetFinishTime = null;
+        targetFinish.textContent = "--:--:--";
+        targetFinish.classList.add("overdue");
+    } else {
+        currentTargetFinishTime = new Date(Date.now() + unit.seconds * 1000);
+        renderClock();
+    }
 
-a Christians are often called on to weigh Bible principles carefully. We need to understand how Bible principles relate to one another and to decisions that we may need to make. We can use our God-given power of reason, or thinking abilities, to make balanced decisions that will have Jehovah’s approval and blessing. In the first century, this way of worship was a change for many Jews who had become Christians. They had previously lived their life following the many rules dictated by tradition.
+    nextPara.textContent =
+        currentIndex < units.length - 1
+            ? units[currentIndex + 1].label
+            : "-";
+}
 
-Copyright © 2026 Watch Tower Bible and Tract Society of Pennsylvania Terms of Use Privacy Policy Privacy Settings JW.ORG Log In
+// Every second: re-render the clock (matters most for "countdown" mode,
+// which needs to visibly tick down; "clock" mode just gets its overdue
+// state re-checked, since the wall-clock text itself doesn't change).
+setInterval(() => {
+    if (discussionScreen.classList.contains("hidden")) return;
+    renderClock();
+}, 1000);
+
+// Two different rules depending on whether the discussion is currently
+// ahead of or behind its original plan:
+//
+// AHEAD of schedule (banked-up surplus time): the surplus is shared
+// proportionally across EVERYTHING still ahead — paragraphs and fixed
+// items alike — continuously, the whole way through. This avoids all the
+// saved time piling onto whichever paragraphs happen to be left (which
+// would make, say, the very last paragraph balloon to an absurd planned
+// time) only to suddenly "unlock" for the fixed items the moment
+// paragraphs run out. Each unit's share of a surplus is proportional to
+// its own originally-planned allocation (unit.plannedSeconds).
+//
+// BEHIND schedule (a deficit to make up): paragraphs absorb it first,
+// shrinking down to a 30s floor each, before fixed items (Opening/Closing
+// Comments, Review Questions) are touched at all. Only once paragraphs
+// have hit that floor and there's still a deficit do fixed items start
+// shrinking too, shared proportionally to each one's own baseline (so
+// Opening/Closing Comments, at 90s, give up more than a Review Question
+// at 60s, rather than everyone losing an identical flat amount).
+function recalcVariableSeconds() {
+    const PARAGRAPH_FLOOR_SECONDS = 30;
+
+    let upcoming = units.slice(currentIndex);
+    if (upcoming.length === 0) return;
+
+    let fixedUpcoming = upcoming.filter(u => u.fixed);
+    let paragraphsUpcoming = upcoming.filter(u => !u.fixed);
+
+    let nominalRemainingTotal = upcoming.reduce((sum, u) => sum + (u.plannedSeconds || 0), 0);
+
+    if (nominalRemainingTotal > 0 && remainingSeconds >= nominalRemainingTotal) {
+        // On pace or ahead: share the surplus proportionally across
+        // everything still ahead, fixed items included.
+        let scale = remainingSeconds / nominalRemainingTotal;
+        upcoming.forEach(u => { u.seconds = (u.plannedSeconds || 0) * scale; });
+        return;
+    }
+
+    // Behind schedule (or no planned baseline yet) — paragraphs absorb the
+    // deficit first, down to a floor, before fixed items are touched.
+    let fixedWeightTotal = fixedUpcoming.reduce((sum, u) => sum + u.fixedSeconds, 0);
+
+    if (paragraphsUpcoming.length === 0) {
+        fixedUpcoming.forEach(u => {
+            u.seconds = fixedWeightTotal > 0
+                ? (u.fixedSeconds / fixedWeightTotal) * remainingSeconds
+                : remainingSeconds / fixedUpcoming.length;
+        });
+        return;
+    }
+
+    let fixedFullTotal = fixedWeightTotal;
+    let timeForParagraphsIfFixedFull = remainingSeconds - fixedFullTotal;
+    let paragraphFloorTotal = paragraphsUpcoming.length * PARAGRAPH_FLOOR_SECONDS;
+    let paragraphWords = paragraphsUpcoming.reduce((sum, u) => sum + u.words, 0);
+
+    if (timeForParagraphsIfFixedFull >= paragraphFloorTotal) {
+        // Affordable: fixed items keep their own full planned baseline,
+        // paragraphs split whatever's left by word count (never below the
+        // floor here, since we already confirmed it's affordable).
+        fixedUpcoming.forEach(u => { u.seconds = u.fixedSeconds; });
+        paragraphsUpcoming.forEach(u => {
+            u.seconds = paragraphWords > 0
+                ? (u.words / paragraphWords) * timeForParagraphsIfFixedFull
+                : timeForParagraphsIfFixedFull / paragraphsUpcoming.length;
+        });
+    } else {
+        // Not affordable: paragraphs are floored at 30s each, and the
+        // fixed items absorb the remaining squeeze, shared proportionally
+        // to their own baseline.
+        paragraphsUpcoming.forEach(u => { u.seconds = PARAGRAPH_FLOOR_SECONDS; });
+        let timeLeftForFixed = remainingSeconds - paragraphFloorTotal;
+        fixedUpcoming.forEach(u => {
+            u.seconds = fixedWeightTotal > 0
+                ? (u.fixedSeconds / fixedWeightTotal) * timeLeftForFixed
+                : timeLeftForFixed / fixedUpcoming.length;
+        });
+    }
+}
+
+// ------------------------------
+// MAIN LOGIC
+// ------------------------------
+generateBtn.onclick = async () => {
+    let text = document.getElementById("articleInput").value;
+    let meetingLength = parseInt(document.getElementById("meetingLength").value);
+    clockStyle = clockStyleSelect.value;
+
+    articleTitleDisplay.textContent = extractArticleTitle(text);
+
+    generateBtn.disabled = true;
+    generateBtn.textContent = "Looking up cited scriptures...";
+
+    let paragraphs = parseParagraphs(text);
+    let { groups: paragraphGroups, leftover } = detectGroups(paragraphs);
+    paragraphGroups = paragraphGroups.map(u => ({ ...u, fixed: false }));
+
+    // Add the real word count of any "Read ___" scriptures onto the
+    // paragraph that cites them, so reading time is accounted for.
+    for (let unit of paragraphGroups) {
+        await addReadScriptureWords(unit);
+    }
+
+    generateBtn.disabled = false;
+    generateBtn.textContent = "Generate Discussion";
+
+    let reviewCount = countReviewQuestions(leftover);
+
+    let openingUnit = { label: "Opening Comments", words: 0, fixed: true, fixedSeconds: 90, seconds: 90 };
+    let closingUnit = { label: "Closing Comments", words: 0, fixed: true, fixedSeconds: 90, seconds: 90 };
+    let reviewUnits = [];
+    for (let n = 1; n <= reviewCount; n++) {
+        reviewUnits.push({ label: `Review Question ${n}`, words: 0, fixed: true, fixedSeconds: 60, seconds: 60 });
+    }
+
+    units = [openingUnit, ...paragraphGroups, ...reviewUnits, closingUnit];
+
+    totalAllocated = meetingLength * 60;
+    remainingSeconds = totalAllocated;
+
+    currentIndex = 0;
+    history = [];
+    hasStarted = false;
+    startTime = null;
+
+    recalcVariableSeconds();
+
+    // Capture the originally planned allocation for every unit, once, as
+    // the baseline the end-of-discussion summary will compare actual time
+    // against. Restarting the same discussion re-recalculates live
+    // .seconds for display, but this baseline stays fixed.
+    units.forEach(u => {
+        u.plannedSeconds = u.seconds;
+        u.actualSeconds = null;
+    });
+
+    completeBtn.textContent = "START";
+    updateDisplay();
+    showScreen(discussionScreen);
+};
+
+completeBtn.onclick = () => {
+    // Flash effect
+    completeBtn.classList.add("flash");
+    setTimeout(() => completeBtn.classList.remove("flash"), 200);
+
+    let now = new Date();
+
+    // First press just starts the clock on Opening Comments;
+    // it doesn't complete anything.
+    if (!hasStarted) {
+        hasStarted = true;
+        startTime = now;
+        completeBtn.textContent = "COMPLETE";
+        updateDisplay();
+        return;
+    }
+
+    let elapsed = (now - startTime) / 1000;
+    let completedUnit = units[currentIndex];
+
+    history.push({
+        index: currentIndex,
+        remaining: remainingSeconds,
+        prevActualSeconds: completedUnit.actualSeconds
+    });
+
+    completedUnit.actualSeconds = elapsed;
+    remainingSeconds -= elapsed;
+
+    currentIndex++;
+    if (currentIndex >= units.length) {
+        renderSummaryTable();
+        showScreen(summaryScreen);
+        return;
+    }
+
+    recalcVariableSeconds();
+
+    startTime = now;
+    updateDisplay();
+};
+
+undoBtn.onclick = () => {
+    if (history.length === 0) return;
+
+    let last = history.pop();
+    units[last.index].actualSeconds = last.prevActualSeconds;
+    currentIndex = last.index;
+    remainingSeconds = last.remaining;
+    startTime = new Date();
+
+    recalcVariableSeconds();
+    updateDisplay();
+};
+
+restartBtn.onclick = () => {
+    if (units.length === 0) {
+        showScreen(settingsScreen);
+        return;
+    }
+
+    if (!confirm("Are you sure you want to restart? This will reset all progress for this discussion.")) {
+        return;
+    }
+
+    currentIndex = 0;
+    history = [];
+    hasStarted = false;
+    startTime = null;
+    remainingSeconds = totalAllocated;
+
+    units.forEach(u => { u.actualSeconds = null; });
+
+    recalcVariableSeconds();
+
+    completeBtn.textContent = "START";
+    updateDisplay();
+    showScreen(discussionScreen);
+};
+
+// Going into Settings from somewhere mid-session shouldn't be a dead end —
+// remember where we came from so the Back button can return there.
+function enterSettingsScreen(fromScreen) {
+    cameFromScreen = fromScreen;
+    backFromSettingsBtn.classList.remove("hidden");
+    showScreen(settingsScreen);
+}
+
+settingsBtn.onclick = () => {
+    enterSettingsScreen(discussionScreen);
+};
+
+backToSettingsBtn.onclick = () => {
+    enterSettingsScreen(summaryScreen);
+};
+
+backFromSettingsBtn.onclick = () => {
+    if (!cameFromScreen) return;
+    showScreen(cameFromScreen);
+    // Nothing in the underlying state changed just by visiting Settings,
+    // so just re-render the clock as it already was rather than
+    // recomputing a new target finish time (which would unfairly push
+    // the current item's deadline forward by however long was spent
+    // browsing Settings).
+    renderClock();
+};
+
+viewTimingsBtn.onclick = () => {
+    renderTimingsTable();
+    timingsModal.classList.remove("hidden");
+};
+
+closeTimingsBtn.onclick = () => {
+    timingsModal.classList.add("hidden");
+};
