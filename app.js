@@ -411,7 +411,7 @@ setInterval(() => {
 // Opening/Closing Comments, at 90s, give up more than a Review Question
 // at 60s, rather than everyone losing an identical flat amount).
 function recalcVariableSeconds() {
-    const PARAGRAPH_FLOOR_SECONDS = 30;
+    const PARAGRAPH_FLOOR_SECONDS = 90;
 
     let upcoming = units.slice(currentIndex);
     if (upcoming.length === 0) return;
