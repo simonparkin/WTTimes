@@ -36,6 +36,7 @@ const viewTimingsBtn = document.getElementById("viewTimingsBtn");
 const closeTimingsBtn = document.getElementById("closeTimingsBtn");
 const timingsModal = document.getElementById("timingsModal");
 const timingsTableBody = document.getElementById("timingsTableBody");
+const meetingEndTimeInput = document.getElementById("meetingEndTimeInput");
 const summaryContent = document.getElementById("summaryContent");
 
 
@@ -641,9 +642,53 @@ backFromSettingsBtn.onclick = () => {
 
 viewTimingsBtn.onclick = () => {
     renderTimingsTable();
+    meetingEndTimeInput.value = getProjectedEndTimeString();
     timingsModal.classList.remove("hidden");
 };
 
 closeTimingsBtn.onclick = () => {
     timingsModal.classList.add("hidden");
 };
+
+// Returns the projected meeting end time as a "HH:MM" string suitable for
+// a <input type="time">. If the discussion has started, this is the moment
+// when remainingSeconds run out from now. If not yet started, it's
+// totalAllocated seconds from now, as a best-guess preview.
+function getProjectedEndTimeString() {
+    let endMs = Date.now() + remainingSeconds * 1000;
+    let d = new Date(endMs);
+    let hh = d.getHours().toString().padStart(2, "0");
+    let mm = d.getMinutes().toString().padStart(2, "0");
+    return `${hh}:${mm}`;
+}
+
+// When the conductor edits the end time, recalculate remainingSeconds to
+// match and redistribute all planned times immediately.
+meetingEndTimeInput.addEventListener("change", () => {
+    let val = meetingEndTimeInput.value; // "HH:MM"
+    if (!val) return;
+
+    let [hh, mm] = val.split(":").map(Number);
+    let now = new Date();
+    let newEnd = new Date(now);
+    newEnd.setHours(hh, mm, 0, 0);
+
+    // If the entered time looks like it's earlier today but is actually
+    // meant for tomorrow (e.g. a meeting running past midnight), push it
+    // forward one day.
+    if (newEnd <= now) newEnd.setDate(newEnd.getDate() + 1);
+
+    let newRemaining = (newEnd.getTime() - now.getTime()) / 1000;
+    if (newRemaining <= 0) return; // ignore nonsensical times
+
+    remainingSeconds = newRemaining;
+    recalcVariableSeconds();
+    renderTimingsTable();
+
+    // Also nudge the main clock to reflect the new target immediately,
+    // so the big display stays in sync when the modal is closed.
+    if (hasStarted && currentIndex < units.length) {
+        currentTargetFinishTime = new Date(Date.now() + units[currentIndex].seconds * 1000);
+        renderClock();
+    }
+});
