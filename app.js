@@ -101,6 +101,7 @@ function detectGroups(paragraphs) {
     let groups = [];
     let i = 0;
     let lastConsumedEnd = 0; // index right after the last group's consumed blocks
+    let pendingOrphanWords = 0; // words from non-numbered blocks since the last group
 
     while (i < paragraphs.length) {
         let p = paragraphs[i];
@@ -109,14 +110,23 @@ function detectGroups(paragraphs) {
         let match = p.match(/^(\d+)(?:-(\d+))?[\.\s]/);
 
         if (match) {
+            // Flush any non-numbered blocks accumulated since the last group
+            // (e.g. box content like "Bible Principles to Consider", photo
+            // captions, collage descriptions) into that last group's word
+            // count. These blocks sit between paragraphs in the article and
+            // are read/discussed as part of the preceding paragraph, so they
+            // deserve a proportional share of that paragraph's time.
+            // Blocks before the very first numbered paragraph are ignored
+            // (they're preamble: article title, focus statement, etc.).
+            if (pendingOrphanWords > 0 && groups.length > 0) {
+                groups[groups.length - 1].words += pendingOrphanWords;
+                pendingOrphanWords = 0;
+            }
+
             let start = parseInt(match[1]);
             let end = match[2] ? parseInt(match[2]) : start;
-            let needed = end - start + 1; // how many answer paragraphs to expect
+            let needed = end - start + 1;
 
-            // Simply take the next `needed` blocks as the answer paragraphs.
-            // This naturally handles paragraph 1, which is never numbered
-            // (it's just plain text), since it's still the very next block
-            // after its question.
             let combinedBlocks = [p];
             let consumed = 0;
             let j = i + 1;
@@ -132,7 +142,6 @@ function detectGroups(paragraphs) {
                 );
             }
 
-            // Merge everything into one discussion unit
             let combined = combinedBlocks.join(" ");
             let wordCount = combined.split(/\s+/).filter(Boolean).length;
 
@@ -142,16 +151,17 @@ function detectGroups(paragraphs) {
                 words: wordCount
             });
 
-            i = j; // move past the question AND all the blocks we consumed
+            i = j;
             lastConsumedEnd = j;
         } else {
+            // Non-numbered block — count its words for the preceding group.
+            // Blocks after the last numbered paragraph go into leftover anyway
+            // so they won't be double-counted there.
+            pendingOrphanWords += p.split(/\s+/).filter(Boolean).length;
             i++;
         }
     }
 
-    // Anything after the last paragraph group (e.g. review questions at
-    // the end of the article) is returned separately so the caller can
-    // decide what to do with it.
     return { groups, leftover: paragraphs.slice(lastConsumedEnd) };
 }
 
