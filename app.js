@@ -3,10 +3,11 @@
 // ------------------------------
 let units = [];              // grouped paragraph units
 let currentIndex = 0;        // which unit we're on
-let startTime = null;        // when discussion started
+let startTime = null;        // when the START button was pressed
 let history = [];            // for undo
-let totalAllocated = 0;      // total allocated seconds
-let remainingSeconds = 0;    // remaining time
+let totalAllocated = 0;      // total allocated seconds (from settings)
+let remainingSeconds = 0;    // pre-start planning value; after START always derived from meetingEndTime
+let meetingEndTime = null;   // fixed wall-clock end time, set once on START (or by user edit)
 let hasStarted = false;      // whether the START button has been pressed yet
 let currentTargetFinishTime = null; // Date the current item is supposed to finish by
 let clockStyle = "clock";    // "clock" (wall-clock target time) or "countdown" (counts down)
@@ -412,6 +413,14 @@ setInterval(() => {
 // Opening/Closing Comments, at 90s, give up more than a Review Question
 // at 60s, rather than everyone losing an identical flat amount).
 function recalcVariableSeconds() {
+    // If the meeting has started, always derive remaining time from the
+    // fixed meetingEndTime anchor rather than a manually-decremented
+    // counter — this means undo, pausing, or any other operation can
+    // never accidentally push the meeting end time around.
+    if (meetingEndTime) {
+        remainingSeconds = Math.max(0, (meetingEndTime.getTime() - Date.now()) / 1000);
+    }
+
     const PARAGRAPH_FLOOR_SECONDS = 90;
 
     let upcoming = units.slice(currentIndex);
@@ -545,6 +554,10 @@ completeBtn.onclick = () => {
     if (!hasStarted) {
         hasStarted = true;
         startTime = now;
+        // Fix the meeting end time once, from this exact moment. Nothing
+        // in the timing logic may ever change meetingEndTime after this —
+        // only a deliberate user edit in the View Times modal may do so.
+        meetingEndTime = new Date(now.getTime() + remainingSeconds * 1000);
         completeBtn.textContent = "COMPLETE";
         updateDisplay();
         return;
@@ -555,12 +568,16 @@ completeBtn.onclick = () => {
 
     history.push({
         index: currentIndex,
-        remaining: remainingSeconds,
+        // Save the target finish time that was showing for this item so
+        // undo can restore it exactly — without recomputing a new future
+        // time from scratch (which would look wrong if time has passed).
+        savedTargetFinishTime: currentTargetFinishTime,
         prevActualSeconds: completedUnit.actualSeconds
     });
 
     completedUnit.actualSeconds = elapsed;
-    remainingSeconds -= elapsed;
+    // Do NOT decrement remainingSeconds here — recalcVariableSeconds()
+    // derives it fresh from meetingEndTime every time it runs.
 
     currentIndex++;
     if (currentIndex >= units.length) {
@@ -581,11 +598,25 @@ undoBtn.onclick = () => {
     let last = history.pop();
     units[last.index].actualSeconds = last.prevActualSeconds;
     currentIndex = last.index;
-    remainingSeconds = last.remaining;
-    startTime = new Date();
+
+    // Restore the exact clock display that was showing before Complete was
+    // pressed — even if it's already in the past and showing red. Do NOT
+    // reset startTime (that would invent a new future deadline) and do NOT
+    // touch remainingSeconds (recalcVariableSeconds derives it from the
+    // fixed meetingEndTime, so the overall meeting end time is unaffected).
+    currentTargetFinishTime = last.savedTargetFinishTime;
 
     recalcVariableSeconds();
-    updateDisplay();
+
+    // Update the label and next-para display without recomputing the clock.
+    let unit = units[currentIndex];
+    currentParaLabel.textContent = unit.fixed
+        ? unit.label.toUpperCase()
+        : `PARAGRAPH ${unit.label}`;
+    nextPara.textContent = currentIndex < units.length - 1
+        ? units[currentIndex + 1].label
+        : "-";
+    renderClock();
 };
 
 restartBtn.onclick = () => {
@@ -602,6 +633,7 @@ restartBtn.onclick = () => {
     history = [];
     hasStarted = false;
     startTime = null;
+    meetingEndTime = null;
     remainingSeconds = totalAllocated;
 
     units.forEach(u => { u.actualSeconds = null; });
@@ -655,38 +687,35 @@ closeTimingsBtn.onclick = () => {
 // when remainingSeconds run out from now. If not yet started, it's
 // totalAllocated seconds from now, as a best-guess preview.
 function getProjectedEndTimeString() {
-    let endMs = Date.now() + remainingSeconds * 1000;
+    let endMs = meetingEndTime
+        ? meetingEndTime.getTime()
+        : Date.now() + remainingSeconds * 1000;
     let d = new Date(endMs);
     let hh = d.getHours().toString().padStart(2, "0");
     let mm = d.getMinutes().toString().padStart(2, "0");
     return `${hh}:${mm}`;
 }
 
-// When the conductor edits the end time, recalculate remainingSeconds to
-// match and redistribute all planned times immediately.
+// When the conductor edits the end time, update meetingEndTime — the only
+// place besides START that is allowed to move the meeting's end anchor.
 meetingEndTimeInput.addEventListener("change", () => {
-    let val = meetingEndTimeInput.value; // "HH:MM"
+    let val = meetingEndTimeInput.value;
     if (!val) return;
 
     let [hh, mm] = val.split(":").map(Number);
     let now = new Date();
     let newEnd = new Date(now);
     newEnd.setHours(hh, mm, 0, 0);
-
-    // If the entered time looks like it's earlier today but is actually
-    // meant for tomorrow (e.g. a meeting running past midnight), push it
-    // forward one day.
     if (newEnd <= now) newEnd.setDate(newEnd.getDate() + 1);
 
     let newRemaining = (newEnd.getTime() - now.getTime()) / 1000;
-    if (newRemaining <= 0) return; // ignore nonsensical times
+    if (newRemaining <= 0) return;
 
+    meetingEndTime = newEnd;
     remainingSeconds = newRemaining;
     recalcVariableSeconds();
     renderTimingsTable();
 
-    // Also nudge the main clock to reflect the new target immediately,
-    // so the big display stays in sync when the modal is closed.
     if (hasStarted && currentIndex < units.length) {
         currentTargetFinishTime = new Date(Date.now() + units[currentIndex].seconds * 1000);
         renderClock();
