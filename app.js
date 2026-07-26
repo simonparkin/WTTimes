@@ -432,7 +432,7 @@ function recalcVariableSeconds() {
         remainingSeconds = Math.max(0, (meetingEndTime.getTime() - Date.now()) / 1000);
     }
 
-    const PARAGRAPH_FLOOR_SECONDS = 90;
+    const PARAGRAPH_FLOOR_SECONDS = 60;
 
     let upcoming = units.slice(currentIndex);
     if (upcoming.length === 0) return;
