@@ -275,14 +275,19 @@ function renderSummaryTable() {
     let totalActual = 0;
 
     let rows = units.map(unit => {
-        let planned = unit.plannedSeconds || 0;
+        // Use the live target the conductor was actually shown when this
+        // item started — not the original generation-time plan, which
+        // becomes misleading once overruns have recalculated everything.
+        let target = unit.startPlannedSeconds !== null && unit.startPlannedSeconds !== undefined
+            ? unit.startPlannedSeconds
+            : unit.plannedSeconds || 0;
         let actual = unit.actualSeconds;
         let hasActual = actual !== null && actual !== undefined;
 
-        totalPlanned += planned;
+        totalPlanned += target;
         if (hasActual) totalActual += actual;
 
-        let diff = hasActual ? planned - actual : null; // positive = finished early, negative = ran over
+        let diff = hasActual ? target - actual : null;
         let diffText = diff === null
             ? "—"
             : (diff >= 0 ? `+${formatDuration(diff)}` : `−${formatDuration(-diff)}`);
@@ -294,14 +299,20 @@ function renderSummaryTable() {
         return `
             <tr class="${rowClass}">
                 <td>${label}</td>
-                <td>${formatDuration(planned)}</td>
+                <td>${formatDuration(target)}</td>
                 <td>${hasActual ? formatDuration(actual) : "—"}</td>
                 <td class="${diffClass}">${diffText}</td>
             </tr>
         `;
     }).join("");
 
-    let overallDiff = totalPlanned - totalActual;
+    // Overall ahead/behind: compare total actual time spent against the
+    // full meeting allocation (not the sum of original planned seconds,
+    // which is also the allocation but can obscure recalculations).
+    let totalAllocatedForSummary = meetingEndTime && startTime
+        ? (meetingEndTime.getTime() - startTime.getTime()) / 1000
+        : totalAllocated;
+    let overallDiff = totalAllocatedForSummary - totalActual;
     let overallText = overallDiff >= 0
         ? `Finished ${formatDuration(overallDiff)} ahead of schedule overall.`
         : `Finished ${formatDuration(-overallDiff)} behind schedule overall.`;
@@ -311,7 +322,7 @@ function renderSummaryTable() {
             <thead>
                 <tr>
                     <th>Item</th>
-                    <th>Planned</th>
+                    <th>Target</th>
                     <th>Actual</th>
                     <th>+/−</th>
                 </tr>
@@ -554,11 +565,11 @@ completeBtn.onclick = () => {
     if (!hasStarted) {
         hasStarted = true;
         startTime = now;
-        // Fix the meeting end time once, from this exact moment. Nothing
-        // in the timing logic may ever change meetingEndTime after this —
-        // only a deliberate user edit in the View Times modal may do so.
         meetingEndTime = new Date(now.getTime() + remainingSeconds * 1000);
         completeBtn.textContent = "COMPLETE";
+        // Capture the live planned time for the first item (Opening Comments)
+        // at the moment it actually starts — this is what the conductor sees.
+        units[currentIndex].startPlannedSeconds = units[currentIndex].seconds;
         updateDisplay();
         return;
     }
@@ -568,16 +579,12 @@ completeBtn.onclick = () => {
 
     history.push({
         index: currentIndex,
-        // Save the target finish time that was showing for this item so
-        // undo can restore it exactly — without recomputing a new future
-        // time from scratch (which would look wrong if time has passed).
         savedTargetFinishTime: currentTargetFinishTime,
-        prevActualSeconds: completedUnit.actualSeconds
+        prevActualSeconds: completedUnit.actualSeconds,
+        prevStartPlannedSeconds: units[currentIndex + 1] ? units[currentIndex + 1].startPlannedSeconds : null
     });
 
     completedUnit.actualSeconds = elapsed;
-    // Do NOT decrement remainingSeconds here — recalcVariableSeconds()
-    // derives it fresh from meetingEndTime every time it runs.
 
     currentIndex++;
     if (currentIndex >= units.length) {
@@ -588,6 +595,12 @@ completeBtn.onclick = () => {
 
     recalcVariableSeconds();
 
+    // Capture the live planned time for the next item at the moment it
+    // becomes current — after recalc, this is the honest "target" the
+    // conductor is now working against, which may differ from the
+    // original generation-time plan if earlier items ran over or under.
+    units[currentIndex].startPlannedSeconds = units[currentIndex].seconds;
+
     startTime = now;
     updateDisplay();
 };
@@ -597,6 +610,12 @@ undoBtn.onclick = () => {
 
     let last = history.pop();
     units[last.index].actualSeconds = last.prevActualSeconds;
+    // Restore the next unit's startPlannedSeconds too — if undo is pressed
+    // immediately after Complete, the new current unit may have had its
+    // startPlannedSeconds set from an aborted recalc.
+    if (units[last.index + 1]) {
+        units[last.index + 1].startPlannedSeconds = last.prevStartPlannedSeconds;
+    }
     currentIndex = last.index;
 
     // Restore the exact clock display that was showing before Complete was
