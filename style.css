@@ -19,6 +19,17 @@ body {
     border: 1px solid #333;
 }
 
+#reviewQuestionCustomRow input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 16px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    box-sizing: border-box;
+}
+
 .hidden {
     display: none;
 }
