@@ -123,33 +123,38 @@ function parseParagraphs(text) {
 function detectGroups(paragraphs) {
     let groups = [];
     let i = 0;
-    let lastConsumedEnd = 0; // index right after the last group's consumed blocks
-    let pendingOrphanWords = 0; // words from non-numbered blocks since the last group
+    let lastConsumedEnd = 0;
+    let pendingOrphanWords = 0;
+    let lastParaEnd = 0; // highest paragraph number successfully consumed so far
 
     while (i < paragraphs.length) {
         let p = paragraphs[i];
 
-        // Detect study question like "1-2." or "3."
         let match = p.match(/^(\d+)(?:-(\d+))?[\.\s]/);
 
         if (match) {
-            // Flush any non-numbered blocks accumulated since the last group
-            // (e.g. box content like "Bible Principles to Consider", photo
-            // captions, collage descriptions) into that last group's word
-            // count. These blocks sit between paragraphs in the article and
-            // are read/discussed as part of the preceding paragraph, so they
-            // deserve a proportional share of that paragraph's time.
-            // Blocks before the very first numbered paragraph are ignored
-            // (they're preamble: article title, focus statement, etc.).
+            let start = parseInt(match[1]);
+            let end = match[2] ? parseInt(match[2]) : start;
+
+            // Reject any "paragraph" whose number doesn't advance beyond the
+            // last one we accepted. This prevents scripture references that
+            // start with a number (e.g. "1 Corinthians 4:6", "2 Timothy 3:1")
+            // from being mistaken for paragraph 1 or 2 once the article has
+            // already progressed past that point.
+            if (start <= lastParaEnd) {
+                pendingOrphanWords += p.split(/\s+/).filter(Boolean).length;
+                i++;
+                continue;
+            }
+
+            // Flush orphan blocks accumulated since the last group into that
+            // group's word count (box content, photo captions, etc.).
             if (pendingOrphanWords > 0 && groups.length > 0) {
                 groups[groups.length - 1].words += pendingOrphanWords;
                 pendingOrphanWords = 0;
             }
 
-            let start = parseInt(match[1]);
-            let end = match[2] ? parseInt(match[2]) : start;
             let needed = end - start + 1;
-
             let combinedBlocks = [p];
             let consumed = 0;
             let j = i + 1;
@@ -174,12 +179,10 @@ function detectGroups(paragraphs) {
                 words: wordCount
             });
 
+            lastParaEnd = end;
             i = j;
             lastConsumedEnd = j;
         } else {
-            // Non-numbered block — count its words for the preceding group.
-            // Blocks after the last numbered paragraph go into leftover anyway
-            // so they won't be double-counted there.
             pendingOrphanWords += p.split(/\s+/).filter(Boolean).length;
             i++;
         }
