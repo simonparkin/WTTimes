@@ -29,15 +29,13 @@
         </select>
 
         <label for="reviewQuestionLength">Review Question Length:</label>
-        <div class="reviewQuestionRow">
-            <select id="reviewQuestionLength">
-                <option value="60" selected>1 minute</option>
-                <option value="90">1 minute 30 seconds</option>
-                <option value="other">Other...</option>
-            </select>
-            <div id="reviewQuestionCustomRow" style="display:none">
-                <input type="number" id="reviewQuestionCustom" min="10" max="180" placeholder="Seconds (max 180)">
-            </div>
+        <select id="reviewQuestionLength">
+            <option value="60" selected>1 minute</option>
+            <option value="90">1 minute 30 seconds</option>
+            <option value="other">Other...</option>
+        </select>
+        <div id="reviewQuestionCustomRow" style="display:none">
+            <input type="number" id="reviewQuestionCustom" min="10" max="180" placeholder="Seconds (max 180)">
         </div>
 
         <label for="articleInput">Paste Article Text:</label>
