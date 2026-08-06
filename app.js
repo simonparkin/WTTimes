@@ -8,6 +8,7 @@ let history = [];            // for undo
 let totalAllocated = 0;      // total allocated seconds (from settings)
 let remainingSeconds = 0;    // pre-start planning value; after START always derived from meetingEndTime
 let meetingEndTime = null;   // fixed wall-clock end time, set once on START (or by user edit)
+let meetingStartTime = null; // fixed wall-clock start time, set once on START, never overwritten
 let hasStarted = false;      // whether the START button has been pressed yet
 let currentTargetFinishTime = null; // Date the current item is supposed to finish by
 let clockStyle = "clock";    // "clock" (wall-clock target time) or "countdown" (counts down)
@@ -32,6 +33,9 @@ const restartBtn = document.getElementById("restartBtn");
 const settingsBtn = document.getElementById("settingsBtn");
 const backFromSettingsBtn = document.getElementById("backFromSettingsBtn");
 const clockStyleSelect = document.getElementById("clockStyleSelect");
+const reviewQuestionLengthSelect = document.getElementById("reviewQuestionLength");
+const reviewQuestionCustomRow = document.getElementById("reviewQuestionCustomRow");
+const reviewQuestionCustomInput = document.getElementById("reviewQuestionCustom");
 const backToSettingsBtn = document.getElementById("backToSettings");
 const viewTimingsBtn = document.getElementById("viewTimingsBtn");
 const closeTimingsBtn = document.getElementById("closeTimingsBtn");
@@ -39,6 +43,25 @@ const timingsModal = document.getElementById("timingsModal");
 const timingsTableBody = document.getElementById("timingsTableBody");
 const meetingEndTimeInput = document.getElementById("meetingEndTimeInput");
 const summaryContent = document.getElementById("summaryContent");
+
+// Show the custom seconds input only when "Other..." is selected; hide it
+// and clear the value when switching back to a named option.
+reviewQuestionLengthSelect.addEventListener("change", () => {
+    let isOther = reviewQuestionLengthSelect.value === "other";
+    reviewQuestionCustomRow.classList.toggle("hidden", !isOther);
+    if (!isOther) reviewQuestionCustomInput.value = "";
+});
+
+// Enforce the 180-second maximum whenever the custom input is changed.
+reviewQuestionCustomInput.addEventListener("change", () => {
+    let val = parseInt(reviewQuestionCustomInput.value);
+    if (isNaN(val) || val < 10) {
+        reviewQuestionCustomInput.value = 10;
+    } else if (val > 180) {
+        reviewQuestionCustomInput.value = 180;
+        alert("Maximum review question length is 3 minutes (180 seconds).");
+    }
+});
 
 
 // ------------------------------
@@ -319,8 +342,8 @@ function renderSummaryTable() {
     // Overall ahead/behind: compare total actual time spent against the
     // full meeting allocation (not the sum of original planned seconds,
     // which is also the allocation but can obscure recalculations).
-    let totalAllocatedForSummary = meetingEndTime && startTime
-        ? (meetingEndTime.getTime() - startTime.getTime()) / 1000
+    let totalAllocatedForSummary = meetingEndTime && meetingStartTime
+        ? (meetingEndTime.getTime() - meetingStartTime.getTime()) / 1000
         : totalAllocated;
     let overallDiff = totalAllocatedForSummary - totalActual;
     let overallText = overallDiff >= 0
@@ -508,6 +531,9 @@ function recalcVariableSeconds() {
 generateBtn.onclick = async () => {
     let text = document.getElementById("articleInput").value;
     let meetingLength = parseInt(document.getElementById("meetingLength").value);
+    let reviewQuestionSeconds = reviewQuestionLengthSelect.value === "other"
+        ? Math.min(180, Math.max(10, parseInt(reviewQuestionCustomInput.value) || 60))
+        : parseInt(reviewQuestionLengthSelect.value);
     clockStyle = clockStyleSelect.value;
 
     articleTitleDisplay.textContent = extractArticleTitle(text);
@@ -534,7 +560,7 @@ generateBtn.onclick = async () => {
     let closingUnit = { label: "Closing Comments", words: 0, fixed: true, fixedSeconds: 90, seconds: 90 };
     let reviewUnits = [];
     for (let n = 1; n <= reviewCount; n++) {
-        reviewUnits.push({ label: `Review Question ${n}`, words: 0, fixed: true, fixedSeconds: 60, seconds: 60 });
+        reviewUnits.push({ label: `Review Question ${n}`, words: 0, fixed: true, fixedSeconds: reviewQuestionSeconds, seconds: reviewQuestionSeconds });
     }
 
     units = [openingUnit, ...paragraphGroups, ...reviewUnits, closingUnit];
@@ -575,6 +601,7 @@ completeBtn.onclick = () => {
     if (!hasStarted) {
         hasStarted = true;
         startTime = now;
+        meetingStartTime = now;
         meetingEndTime = new Date(now.getTime() + remainingSeconds * 1000);
         completeBtn.textContent = "COMPLETE";
         // Capture the live planned time for the first item (Opening Comments)
@@ -663,6 +690,7 @@ restartBtn.onclick = () => {
     hasStarted = false;
     startTime = null;
     meetingEndTime = null;
+    meetingStartTime = null;
     remainingSeconds = totalAllocated;
 
     units.forEach(u => { u.actualSeconds = null; });
