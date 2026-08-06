@@ -28,6 +28,17 @@
             <option value="countdown">Countdown</option>
         </select>
 
+        <label for="reviewQuestionLength">Review Question Length:</label>
+        <select id="reviewQuestionLength">
+            <option value="60" selected>1 minute</option>
+            <option value="90">1 minute 30 seconds</option>
+            <option value="other">Other...</option>
+        </select>
+        <div id="reviewQuestionCustomRow" class="hidden">
+            <label for="reviewQuestionCustom">Custom length (seconds, max 180):</label>
+            <input type="number" id="reviewQuestionCustom" min="10" max="180" placeholder="e.g. 45">
+        </div>
+
         <label for="articleInput">Paste Article Text:</label>
         <textarea id="articleInput" placeholder="WOL.JW.Org -> Meetings -> Study Article -> Select All -> Copy -> Paste here..."></textarea>
 
