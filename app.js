@@ -48,7 +48,7 @@ const summaryContent = document.getElementById("summaryContent");
 // and clear the value when switching back to a named option.
 reviewQuestionLengthSelect.addEventListener("change", () => {
     let isOther = reviewQuestionLengthSelect.value === "other";
-    reviewQuestionCustomRow.classList.toggle("hidden", !isOther);
+    reviewQuestionCustomRow.style.display = isOther ? "block" : "none";
     if (!isOther) reviewQuestionCustomInput.value = "";
 });
 
