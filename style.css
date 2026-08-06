@@ -30,6 +30,23 @@ body {
     box-sizing: border-box;
 }
 
+.reviewQuestionRow {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.reviewQuestionRow select,
+.reviewQuestionRow #reviewQuestionCustomRow {
+    flex: 1;
+    margin-top: 0;
+}
+
+.reviewQuestionRow #reviewQuestionCustomRow input[type="number"] {
+    margin-top: 0;
+    height: 100%;
+}
+
 .hidden {
     display: none;
 }
