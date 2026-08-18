@@ -25,6 +25,8 @@ const currentParaLabel = document.getElementById("currentParaLabel");
 const articleTitleDisplay = document.getElementById("articleTitleDisplay");
 const targetFinish = document.getElementById("targetFinish");
 const nextPara = document.getElementById("nextPara");
+const noReadBefore = document.getElementById("noReadBefore");
+const noReadAfter = document.getElementById("noReadAfter");
 
 const generateBtn = document.getElementById("generateBtn");
 const completeBtn = document.getElementById("completeBtn");
@@ -426,10 +428,16 @@ function updateDisplay() {
         renderClock();
     }
 
-    nextPara.textContent =
-        currentIndex < units.length - 1
-            ? units[currentIndex + 1].label
-            : "-";
+    let nextUnit = currentIndex < units.length - 1 ? units[currentIndex + 1] : null;
+    nextPara.textContent = nextUnit ? nextUnit.label : "-";
+
+    // Show "NO READ" in red either side of the next paragraph label when
+    // its planned time is 90 seconds or less — a signal to the conductor
+    // that there probably isn't time to read the paragraph aloud.
+    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 90;
+    let noReadText = showNoRead ? " NO READ " : "";
+    noReadBefore.textContent = noReadText;
+    noReadAfter.textContent = noReadText;
 }
 
 // Every second: re-render the clock (matters most for "countdown" mode,
@@ -672,9 +680,12 @@ undoBtn.onclick = () => {
     currentParaLabel.textContent = unit.fixed
         ? unit.label.toUpperCase()
         : `PARAGRAPH ${unit.label}`;
-    nextPara.textContent = currentIndex < units.length - 1
-        ? units[currentIndex + 1].label
-        : "-";
+    let nextUnit = currentIndex < units.length - 1 ? units[currentIndex + 1] : null;
+    nextPara.textContent = nextUnit ? nextUnit.label : "-";
+    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 90;
+    let noReadText = showNoRead ? " NO READ " : "";
+    noReadBefore.textContent = noReadText;
+    noReadAfter.textContent = noReadText;
     renderClock();
 };
 
