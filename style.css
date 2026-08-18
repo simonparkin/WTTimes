@@ -143,6 +143,11 @@ button.primary.flash {
     color: #ff3b30;
 }
 
+.noRead {
+    color: #ff3b30;
+    font-weight: bold;
+}
+
 /* Small "next" caption under the big time */
 .nextInfo {
     text-align: center;
