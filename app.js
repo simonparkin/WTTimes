@@ -434,7 +434,7 @@ function updateDisplay() {
     // Show "NO READ" in red either side of the next paragraph label when
     // its planned time is 90 seconds or less — a signal to the conductor
     // that there probably isn't time to read the paragraph aloud.
-    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 90;
+    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 60;
     let noReadText = showNoRead ? " NO READ " : "";
     noReadBefore.textContent = noReadText;
     noReadAfter.textContent = noReadText;
@@ -682,7 +682,7 @@ undoBtn.onclick = () => {
         : `PARAGRAPH ${unit.label}`;
     let nextUnit = currentIndex < units.length - 1 ? units[currentIndex + 1] : null;
     nextPara.textContent = nextUnit ? nextUnit.label : "-";
-    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 90;
+    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 60;
     let noReadText = showNoRead ? " NO READ " : "";
     noReadBefore.textContent = noReadText;
     noReadAfter.textContent = noReadText;
