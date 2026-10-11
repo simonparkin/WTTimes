@@ -49,11 +49,56 @@ const timingsTableBody = document.getElementById("timingsTableBody");
 const meetingEndTimeInput = document.getElementById("meetingEndTimeInput");
 const summaryContent = document.getElementById("summaryContent");
 
+// ------------------------------
+// SETTINGS PERSISTENCE
+// ------------------------------
+function saveSettings() {
+    try {
+        localStorage.setItem("wt_meetingLength", meetingLengthSelect.value);
+        localStorage.setItem("wt_meetingEndPreset", meetingEndPresetInput.value);
+        localStorage.setItem("wt_clockStyle", clockStyleSelect.value);
+        localStorage.setItem("wt_reviewQuestionLength", reviewQuestionLengthSelect.value);
+        localStorage.setItem("wt_reviewQuestionCustom", reviewQuestionCustomInput.value);
+    } catch (e) {}
+}
+
+function loadSettings() {
+    try {
+        let ml = localStorage.getItem("wt_meetingLength");
+        if (ml) meetingLengthSelect.value = ml;
+
+        let ep = localStorage.getItem("wt_meetingEndPreset");
+        if (ep) meetingEndPresetInput.value = ep;
+
+        // Show the time input if fixed mode was saved
+        if (meetingLengthSelect.value === "fixed") {
+            meetingEndPresetInput.style.display = "block";
+        }
+
+        let cs = localStorage.getItem("wt_clockStyle");
+        if (cs) clockStyleSelect.value = cs;
+
+        let rql = localStorage.getItem("wt_reviewQuestionLength");
+        if (rql) reviewQuestionLengthSelect.value = rql;
+
+        let rqc = localStorage.getItem("wt_reviewQuestionCustom");
+        if (rqc) reviewQuestionCustomInput.value = rqc;
+
+        // Show the custom seconds input if "Other..." was saved
+        if (reviewQuestionLengthSelect.value === "other") {
+            reviewQuestionCustomInput.style.display = "block";
+        }
+    } catch (e) {}
+}
+
+loadSettings();
+
 // Show the fixed end-time input only when "Fixed end time..." is chosen.
 meetingLengthSelect.addEventListener("change", () => {
     let isFixed = meetingLengthSelect.value === "fixed";
     meetingEndPresetInput.style.display = isFixed ? "block" : "none";
     if (!isFixed) meetingEndPresetInput.value = "";
+    saveSettings();
 });
 
 // Show the custom seconds input only when "Other..." is selected; hide it
@@ -62,6 +107,7 @@ reviewQuestionLengthSelect.addEventListener("change", () => {
     let isOther = reviewQuestionLengthSelect.value === "other";
     reviewQuestionCustomInput.style.display = isOther ? "block" : "none";
     if (!isOther) reviewQuestionCustomInput.value = "";
+    saveSettings();
 });
 
 // Enforce the 180-second maximum whenever the custom input is changed.
@@ -73,7 +119,11 @@ reviewQuestionCustomInput.addEventListener("change", () => {
         reviewQuestionCustomInput.value = 180;
         alert("Maximum review question length is 3 minutes (180 seconds).");
     }
+    saveSettings();
 });
+
+clockStyleSelect.addEventListener("change", saveSettings);
+meetingEndPresetInput.addEventListener("change", saveSettings);
 
 
 // ------------------------------
