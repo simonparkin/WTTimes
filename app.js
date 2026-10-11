@@ -13,6 +13,7 @@ let hasStarted = false;      // whether the START button has been pressed yet
 let currentTargetFinishTime = null; // Date the current item is supposed to finish by
 let clockStyle = "clock";    // "clock" (wall-clock target time) or "countdown" (counts down)
 let cameFromScreen = null;   // which screen "Back" on the settings screen should return to
+let presetEndTime = null;    // set at Generate time when "Fixed end time..." is chosen; used on START
 
 // ------------------------------
 // SCREEN ELEMENTS
@@ -35,6 +36,8 @@ const restartBtn = document.getElementById("restartBtn");
 const settingsBtn = document.getElementById("settingsBtn");
 const backFromSettingsBtn = document.getElementById("backFromSettingsBtn");
 const clockStyleSelect = document.getElementById("clockStyleSelect");
+const meetingLengthSelect = document.getElementById("meetingLength");
+const meetingEndPresetInput = document.getElementById("meetingEndPreset");
 const reviewQuestionLengthSelect = document.getElementById("reviewQuestionLength");
 const reviewQuestionCustomRow = document.getElementById("reviewQuestionCustomRow");
 const reviewQuestionCustomInput = document.getElementById("reviewQuestionCustom");
@@ -45,6 +48,13 @@ const timingsModal = document.getElementById("timingsModal");
 const timingsTableBody = document.getElementById("timingsTableBody");
 const meetingEndTimeInput = document.getElementById("meetingEndTimeInput");
 const summaryContent = document.getElementById("summaryContent");
+
+// Show the fixed end-time input only when "Fixed end time..." is chosen.
+meetingLengthSelect.addEventListener("change", () => {
+    let isFixed = meetingLengthSelect.value === "fixed";
+    meetingEndPresetInput.style.display = isFixed ? "block" : "none";
+    if (!isFixed) meetingEndPresetInput.value = "";
+});
 
 // Show the custom seconds input only when "Other..." is selected; hide it
 // and clear the value when switching back to a named option.
@@ -434,7 +444,7 @@ function updateDisplay() {
     // Show "NO READ" in red either side of the next paragraph label when
     // its planned time is 90 seconds or less — a signal to the conductor
     // that there probably isn't time to read the paragraph aloud.
-    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 60;
+    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 90;
     let noReadText = showNoRead ? " NO READ " : "";
     noReadBefore.textContent = noReadText;
     noReadAfter.textContent = noReadText;
@@ -541,7 +551,7 @@ function recalcVariableSeconds() {
 // ------------------------------
 generateBtn.onclick = async () => {
     let text = document.getElementById("articleInput").value;
-    let meetingLength = parseInt(document.getElementById("meetingLength").value);
+    let meetingLengthVal = meetingLengthSelect.value;
     let reviewQuestionSeconds = reviewQuestionLengthSelect.value === "other"
         ? Math.min(180, Math.max(10, parseInt(reviewQuestionCustomInput.value) || 60))
         : parseInt(reviewQuestionLengthSelect.value);
@@ -576,7 +586,25 @@ generateBtn.onclick = async () => {
 
     units = [openingUnit, ...paragraphGroups, ...reviewUnits, closingUnit];
 
-    totalAllocated = meetingLength * 60;
+    // Work out the total allocated time and (for fixed mode) the preset end time.
+    if (meetingLengthVal === "fixed") {
+        let timeVal = meetingEndPresetInput.value;
+        if (timeVal) {
+            let [hh, mm] = timeVal.split(":").map(Number);
+            let d = new Date();
+            d.setHours(hh, mm, 0, 0);
+            if (d <= new Date()) d.setDate(d.getDate() + 1); // handle midnight rollover
+            presetEndTime = d;
+            totalAllocated = Math.max(0, (d.getTime() - Date.now()) / 1000);
+        } else {
+            // No time entered: fall back gracefully to 60 minutes
+            presetEndTime = null;
+            totalAllocated = 60 * 60;
+        }
+    } else {
+        presetEndTime = null;
+        totalAllocated = parseInt(meetingLengthVal) * 60;
+    }
     remainingSeconds = totalAllocated;
 
     currentIndex = 0;
@@ -613,7 +641,11 @@ completeBtn.onclick = () => {
         hasStarted = true;
         startTime = now;
         meetingStartTime = now;
-        meetingEndTime = new Date(now.getTime() + remainingSeconds * 1000);
+        // If the conductor chose a fixed wall-clock end time at setup, use
+        // that precisely. Otherwise anchor on remainingSeconds from now.
+        meetingEndTime = presetEndTime
+            ? presetEndTime
+            : new Date(now.getTime() + remainingSeconds * 1000);
         completeBtn.textContent = "COMPLETE";
         // Capture the live planned time for the first item (Opening Comments)
         // at the moment it actually starts — this is what the conductor sees.
@@ -682,7 +714,7 @@ undoBtn.onclick = () => {
         : `PARAGRAPH ${unit.label}`;
     let nextUnit = currentIndex < units.length - 1 ? units[currentIndex + 1] : null;
     nextPara.textContent = nextUnit ? nextUnit.label : "-";
-    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 60;
+    let showNoRead = nextUnit && !nextUnit.fixed && (nextUnit.seconds || 0) <= 90;
     let noReadText = showNoRead ? " NO READ " : "";
     noReadBefore.textContent = noReadText;
     noReadAfter.textContent = noReadText;

@@ -17,10 +17,16 @@
         <h1>Watchtower Times</h1>
 
         <label for="meetingLength">Meeting Length:</label>
-        <select id="meetingLength">
-            <option value="60">60 minutes</option>
-            <option value="30">30 minutes</option>
-        </select>
+        <div class="meetingLengthRow">
+            <select id="meetingLength">
+                <option value="60">60 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="fixed">Fixed end time...</option>
+            </select>
+            <div id="meetingLengthFixedRow">
+                <input type="time" id="meetingEndPreset" style="display:none">
+            </div>
+        </div>
 
         <label for="clockStyleSelect">Clock Style:</label>
         <select id="clockStyleSelect">

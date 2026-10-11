@@ -299,3 +299,33 @@ button.round {
     font-size: 18px;
     margin-top: 16px;
 }
+
+/* Meeting length row: dropdown (50%) + optional time input side-by-side */
+.meetingLengthRow { display: flex; gap: 10px; margin-top: 10px; }
+.meetingLengthRow select { flex: 0 0 calc(50% - 5px); margin-top: 0; width: auto; }
+.meetingLengthRow #meetingLengthFixedRow { flex: 1; }
+.meetingLengthRow input[type="time"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font-size: 16px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    margin-top: 0;
+}
+
+/* Review question row: dropdown (50%) + optional seconds input side-by-side */
+.reviewQuestionRow { display: flex; gap: 10px; margin-top: 10px; }
+.reviewQuestionRow select { flex: 0 0 calc(50% - 5px); margin-top: 0; width: auto; }
+.reviewQuestionRow #reviewQuestionCustomRow { flex: 1; }
+.reviewQuestionRow input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font-size: 16px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    margin-top: 0;
+}
